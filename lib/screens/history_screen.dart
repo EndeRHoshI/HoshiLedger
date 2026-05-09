@@ -90,7 +90,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('账单流水'),
+        title: const Text('账单'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
@@ -103,11 +103,11 @@ class _HistoryScreenState extends State<HistoryScreen> {
         children: [
           // 月份切换和概览
           Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+            child: Column(
               children: [
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1)),
                     Text(DateFormat('yyyy年MM月').format(_displayMonth), 
@@ -115,11 +115,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1)),
                   ],
                 ),
+                const SizedBox(height: 8),
                 Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceAround,
                   children: [
-                    _buildSummaryItem('收入', totalIncome, Colors.green),
-                    const SizedBox(width: 16),
-                    _buildSummaryItem('支出', totalExpense, Colors.red),
+                    _buildSummaryItem('本月收入', totalIncome, Colors.green),
+                    _buildSummaryItem('本月支出', totalExpense, Colors.red),
+                    _buildSummaryItem('结余', totalIncome - totalExpense, Colors.blue),
                   ],
                 ),
               ],

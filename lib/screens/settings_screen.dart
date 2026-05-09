@@ -181,9 +181,24 @@ class _CategoryManagerState extends State<CategoryManager> {
   }
 
   final List<String> _availableIcons = [
-    'restaurant', 'directions_bus', 'shopping_cart', 'movie',
-    'medical_services', 'home', 'payments', 'trending_up',
-    'work', 'redeem', 'category'
+    // 餐饮
+    'restaurant', 'fastfood', 'local_cafe',
+    // 交通
+    'directions_bus', 'local_gas_station', 'flight',
+    // 购物生活
+    'shopping_cart', 'checkroom', 'pets',
+    // 娱乐运动
+    'movie', 'sports_esports', 'fitness_center',
+    // 家居医疗
+    'home', 'electrical_services', 'handyman', 'medical_services',
+    // 教育个人
+    'school', 'self_improvement', 'volunteer_activism',
+    // 财务
+    'payments', 'account_balance', 'savings', 'trending_up',
+    // 工作与礼赠
+    'work', 'redeem', 'card_giftcard', 'celebration',
+    // 其他
+    'category'
   ];
 
   Future<void> _addNewCategory() async {
@@ -203,43 +218,49 @@ class _CategoryManagerState extends State<CategoryManager> {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocalState) => AlertDialog(
           title: Text(category == null ? '新增分类' : '编辑分类'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: controller,
-                decoration: const InputDecoration(hintText: '输入分类名称'),
-                autofocus: true,
-              ),
-              const SizedBox(height: 20),
-              const Text('选择图标', style: TextStyle(fontSize: 12, color: Colors.grey)),
-              const SizedBox(height: 10),
-              SizedBox(
-                width: double.maxFinite,
-                child: Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  alignment: WrapAlignment.center,
-                  children: _availableIcons.map((iconName) {
-                    final isSelected = selectedIcon == iconName;
-                    return GestureDetector(
-                      onTap: () => setLocalState(() => selectedIcon = iconName),
-                      child: Container(
-                        padding: const EdgeInsets.all(8),
-                        decoration: BoxDecoration(
-                          color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
-                          ),
-                        ),
-                        child: Icon(Category.getIconData(iconName), size: 24),
-                      ),
-                    );
-                  }).toList(),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: controller,
+                  decoration: const InputDecoration(hintText: '输入分类名称'),
+                  autofocus: true,
                 ),
-              ),
-            ],
+                const SizedBox(height: 20),
+                const Text('选择图标', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                const SizedBox(height: 10),
+                SizedBox(
+                  width: double.maxFinite,
+                  height: 240, // 限制高度，防止溢出
+                  child: GridView.builder(
+                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: 4,
+                      mainAxisSpacing: 8,
+                      crossAxisSpacing: 8,
+                    ),
+                    itemCount: _availableIcons.length,
+                    itemBuilder: (ctx, i) {
+                      final iconName = _availableIcons[i];
+                      final isSelected = selectedIcon == iconName;
+                      return GestureDetector(
+                        onTap: () => setLocalState(() => selectedIcon = iconName),
+                        child: Container(
+                          decoration: BoxDecoration(
+                            color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(
+                              color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.withAlpha(51),
+                            ),
+                          ),
+                          child: Icon(Category.getIconData(iconName), size: 24),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
           ),
           actions: [
             TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
