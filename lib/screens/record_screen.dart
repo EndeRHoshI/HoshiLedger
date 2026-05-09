@@ -164,7 +164,7 @@ class _RecordScreenState extends State<RecordScreen> {
               ],
               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
-                prefixText: '￥ ',
+                prefixIcon: const Icon(Icons.currency_yuan, size: 24),
                 hintText: '0.00',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
@@ -221,8 +221,8 @@ class _RecordScreenState extends State<RecordScreen> {
             TextField(
               controller: _noteController,
               decoration: const InputDecoration(
-                hintText: '备注（选填）',
                 prefixIcon: Icon(Icons.notes),
+                hintText: '备注（选填）',
                 border: InputBorder.none,
               ),
             ),
@@ -266,8 +266,9 @@ class _RecordScreenState extends State<RecordScreen> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   IconData _getIconData(String iconName) {
     switch (iconName) {

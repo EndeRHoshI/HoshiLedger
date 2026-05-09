@@ -424,7 +424,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
               ],
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
-                prefixText: '￥ ',
+                prefixIcon: const Icon(Icons.currency_yuan, size: 20),
                 labelText: '金额',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),
@@ -519,8 +519,9 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
           ],
         ),
       ),
-    );
-  }
+    ),
+  );
+}
 
   @override
   void dispose() {

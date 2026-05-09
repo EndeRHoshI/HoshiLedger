@@ -280,19 +280,20 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Widget _buildPieChart() {
+    final sortedCats = _categoryTotals.entries.toList()
+      ..sort((a, b) => b.value.compareTo(a.value));
+
     final List<PieChartSectionData> sections = [];
     final colors = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple, Colors.teal];
-    int colorIdx = 0;
 
-    _categoryTotals.forEach((cat, total) {
+    for (int i = 0; i < sortedCats.length; i++) {
       sections.add(PieChartSectionData(
-        value: total.toDouble(),
-        title: '', // Hide title on chart to avoid overlap
+        value: sortedCats[i].value.toDouble(),
+        title: '',
         radius: 50,
-        color: colors[colorIdx % colors.length],
+        color: colors[i % colors.length],
       ));
-      colorIdx++;
-    });
+    }
 
     return SizedBox(
       height: 200,
@@ -310,15 +311,17 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final sortedCats = _categoryTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    final colors = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple, Colors.teal];
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: Column(
         children: sortedCats.asMap().entries.map((entry) {
+          final idx = entry.key;
           final cat = entry.value.key;
           final amount = entry.value.value;
           final percentage = (amount / _totalExpense * 100).toStringAsFixed(1);
-          final colors = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple, Colors.teal];
-          final color = colors[entry.key % colors.length];
+          final color = colors[idx % colors.length];
 
           return Padding(
             padding: const EdgeInsets.symmetric(vertical: 8),
