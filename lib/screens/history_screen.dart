@@ -3,6 +3,7 @@ import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import '../models/note_template.dart';
 
 class HistoryScreen extends StatefulWidget {
   final int refreshKey;
@@ -257,6 +258,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
   late String _selectedCategory;
   late DateTime _selectedDate;
   List<Category> _categories = [];
+  List<NoteTemplate> _noteTemplates = [];
 
   @override
   void initState() {
@@ -280,6 +282,17 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
         _categories.insert(0, Category(name: _selectedCategory, type: _type, icon: 'category'));
       }
     });
+    await _loadNoteTemplates();
+  }
+
+  Future<void> _loadNoteTemplates() async {
+    final templates = await DBHelper().getNoteTemplates(_selectedCategory);
+    setState(() => _noteTemplates = templates);
+  }
+
+  void _selectCategory(String name) {
+    setState(() => _selectedCategory = name);
+    _loadNoteTemplates();
   }
 
   void _switchType(int type) {
@@ -310,6 +323,9 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
     );
 
     await DBHelper().updateTransaction(updated);
+    if (updated.note.isNotEmpty) {
+      await DBHelper().saveNoteTemplate(updated.category, updated.note);
+    }
     widget.onSaved();
   }
 
@@ -421,7 +437,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                       return ChoiceChip(
                         label: Text(cat.name),
                         selected: isSelected,
-                        onSelected: (_) => setState(() => _selectedCategory = cat.name),
+                        onSelected: (_) => _selectCategory(cat.name),
                       );
                     }).toList(),
                   ),
@@ -456,6 +472,26 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
                 border: InputBorder.none,
               ),
             ),
+
+            // 历史备注快捷 Chip
+            if (_noteTemplates.isNotEmpty) ...[
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 6,
+                runSpacing: 4,
+                children: _noteTemplates.map((t) => ActionChip(
+                      label: Text(t.note, style: const TextStyle(fontSize: 12)),
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      visualDensity: VisualDensity.compact,
+                      onPressed: () {
+                        setState(() => _noteController.text = t.note);
+                        _noteController.selection = TextSelection.fromPosition(
+                          TextPosition(offset: t.note.length),
+                        );
+                      },
+                    )).toList(),
+              ),
+            ],
             const SizedBox(height: 16),
 
             // 保存按钮

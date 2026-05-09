@@ -2,6 +2,7 @@ import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import '../models/note_template.dart';
 
 class DBHelper {
   static final DBHelper _instance = DBHelper._internal();
@@ -20,13 +21,14 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'hoshi_ledger.db');
     return await openDatabase(
       path,
-      version: 1,
+      version: 2, // 升级版本，新增备注模板表
       onCreate: _createDB,
+      onUpgrade: _upgradeDB,
     );
   }
 
   Future<void> _createDB(Database db, int version) async {
-    // Categories table
+    // 分类表
     await db.execute('''
       CREATE TABLE categories(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -36,7 +38,7 @@ class DBHelper {
       )
     ''');
 
-    // Transactions table
+    // 记账流水表
     await db.execute('''
       CREATE TABLE transactions(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -48,7 +50,17 @@ class DBHelper {
       )
     ''');
 
-    // Insert default categories
+    // 备注模板表（按分类存储历史备注，自动去重）
+    await db.execute('''
+      CREATE TABLE note_templates(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        category TEXT NOT NULL,
+        note TEXT NOT NULL,
+        UNIQUE(category, note)
+      )
+    ''');
+
+    // 预置默认分类
     final List<Map<String, dynamic>> defaultCategories = [
       {'name': '餐饮', 'type': 0, 'icon': 'restaurant'},
       {'name': '交通', 'type': 0, 'icon': 'directions_bus'},
@@ -67,7 +79,21 @@ class DBHelper {
     }
   }
 
-  // --- Category CRUD ---
+  /// 数据库升级：从 v1 -> v2 新增 note_templates 表
+  Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
+    if (oldVersion < 2) {
+      await db.execute('''
+        CREATE TABLE IF NOT EXISTS note_templates(
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          category TEXT NOT NULL,
+          note TEXT NOT NULL,
+          UNIQUE(category, note)
+        )
+      ''');
+    }
+  }
+
+  // --- 分类 CRUD ---
   Future<int> insertCategory(Category category) async {
     final db = await database;
     return await db.insert('categories', category.toMap());
@@ -98,7 +124,7 @@ class DBHelper {
     return await db.delete('categories', where: 'id = ?', whereArgs: [id]);
   }
 
-  // --- Transaction CRUD ---
+  // --- 记账流水 CRUD ---
   Future<int> insertTransaction(TransactionModel transaction) async {
     final db = await database;
     return await db.insert('transactions', transaction.toMap());
@@ -106,10 +132,9 @@ class DBHelper {
 
   Future<List<TransactionModel>> getTransactionsByMonth(String yearMonth) async {
     final db = await database;
-    // yearMonth should be "YYYY-MM"
     final List<Map<String, dynamic>> maps = await db.query(
       'transactions',
-      where: "date LIKE ?",
+      where: 'date LIKE ?',
       whereArgs: ['$yearMonth%'],
       orderBy: 'date DESC, id DESC',
     );
@@ -134,5 +159,46 @@ class DBHelper {
   Future<void> clearAllData() async {
     final db = await database;
     await db.delete('transactions');
+  }
+
+  // --- 备注模板 CRUD ---
+
+  /// 保存一条备注模板，相同分类+备注组合自动去重
+  Future<void> saveNoteTemplate(String category, String note) async {
+    if (note.trim().isEmpty) return;
+    final db = await database;
+    await db.insert(
+      'note_templates',
+      {'category': category, 'note': note.trim()},
+      conflictAlgorithm: ConflictAlgorithm.ignore, // 重复则忽略
+    );
+  }
+
+  /// 获取某分类下的所有备注模板（最新在前）
+  Future<List<NoteTemplate>> getNoteTemplates(String category) async {
+    final db = await database;
+    final maps = await db.query(
+      'note_templates',
+      where: 'category = ?',
+      whereArgs: [category],
+      orderBy: 'id DESC',
+    );
+    return maps.map((m) => NoteTemplate.fromMap(m)).toList();
+  }
+
+  /// 获取全部备注模板（按分类排序，用于管理页）
+  Future<List<NoteTemplate>> getAllNoteTemplates() async {
+    final db = await database;
+    final maps = await db.query(
+      'note_templates',
+      orderBy: 'category ASC, id DESC',
+    );
+    return maps.map((m) => NoteTemplate.fromMap(m)).toList();
+  }
+
+  /// 删除单条备注模板
+  Future<void> deleteNoteTemplate(int id) async {
+    final db = await database;
+    await db.delete('note_templates', where: 'id = ?', whereArgs: [id]);
   }
 }

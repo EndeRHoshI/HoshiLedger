@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../utils/csv_exporter.dart';
 import '../models/category.dart';
+import 'note_manager_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -43,6 +44,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.account_balance_wallet, color: Colors.green),
             title: const Text('收入分类'),
             onTap: () => _manageCategories(1),
+          ),
+          const Divider(),
+          _buildSectionHeader('备注管理'),
+          ListTile(
+            leading: const Icon(Icons.notes, color: Colors.teal),
+            title: const Text('备注模板管理'),
+            subtitle: const Text('查看和删除保存的历史备注'),
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (_) => const NoteManagerScreen()),
+            ),
           ),
           const Divider(),
           ListTile(
