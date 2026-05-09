@@ -5,6 +5,7 @@ import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/note_template.dart';
+import 'settings_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final int refreshKey;
@@ -90,6 +91,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
       appBar: AppBar(
         title: const Text('账单流水'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              ).then((_) => _refreshData());
+            },
+          ),
+        ],
       ),
       body: Column(
         children: [
@@ -424,7 +436,11 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
               ],
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.currency_yuan, size: 20),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('￥', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                ),
+                prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                 labelText: '金额',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
               ),

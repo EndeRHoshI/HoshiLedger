@@ -5,6 +5,7 @@ import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/note_template.dart';
+import 'settings_screen.dart';
 
 class RecordScreen extends StatefulWidget {
   const RecordScreen({super.key});
@@ -115,6 +116,17 @@ class _RecordScreenState extends State<RecordScreen> {
       appBar: AppBar(
         title: const Text('极简记账'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
+        ],
       ),
       body: GestureDetector(
         onTap: () => FocusScope.of(context).unfocus(),
@@ -164,7 +176,11 @@ class _RecordScreenState extends State<RecordScreen> {
               ],
               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
-                prefixIcon: const Icon(Icons.currency_yuan, size: 24),
+                prefixIcon: const Padding(
+                  padding: EdgeInsets.symmetric(horizontal: 12),
+                  child: Text('￥', style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+                ),
+                prefixIconConstraints: const BoxConstraints(minWidth: 0, minHeight: 0),
                 hintText: '0.00',
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                 filled: true,
