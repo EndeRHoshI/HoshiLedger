@@ -73,7 +73,10 @@ class _RecordScreenState extends State<RecordScreen> {
 
   void _switchType(int type) {
     if (_type == type) return;
-    setState(() => _type = type);
+    setState(() {
+      _type = type;
+      _selectedCategory = null; // 切换类型时清空选中分类，让 _loadCategories 重新选第一个
+    });
     _loadCategories();
   }
 
@@ -207,6 +210,7 @@ class _RecordScreenState extends State<RecordScreen> {
                     label: const Center(child: Text('支出')),
                     selected: _type == 0,
                     onSelected: (_) => _switchType(0),
+                    showCheckmark: false,
                     selectedColor: Colors.red.withAlpha(51),
                     labelStyle: TextStyle(
                       color: _type == 0 ? Colors.red : null,
@@ -220,6 +224,7 @@ class _RecordScreenState extends State<RecordScreen> {
                     label: const Center(child: Text('收入')),
                     selected: _type == 1,
                     onSelected: (_) => _switchType(1),
+                    showCheckmark: false,
                     selectedColor: Colors.green.withAlpha(51),
                     labelStyle: TextStyle(
                       color: _type == 1 ? Colors.green : null,
