@@ -8,7 +8,8 @@ import '../models/note_template.dart';
 import 'settings_screen.dart';
 
 class RecordScreen extends StatefulWidget {
-  const RecordScreen({super.key});
+  final int refreshKey;
+  const RecordScreen({super.key, this.refreshKey = 0});
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -27,6 +28,16 @@ class _RecordScreenState extends State<RecordScreen> {
   void initState() {
     super.initState();
     _loadCategories();
+    // 监听全局分类更新通知
+    DBHelper.categoryUpdateNotifier.addListener(_loadCategories);
+  }
+
+  @override
+  void didUpdateWidget(covariant RecordScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.refreshKey != oldWidget.refreshKey) {
+      _loadCategories();
+    }
   }
 
   Future<void> _loadCategories() async {
@@ -111,6 +122,14 @@ class _RecordScreenState extends State<RecordScreen> {
   }
 
   @override
+  void dispose() {
+    DBHelper.categoryUpdateNotifier.removeListener(_loadCategories);
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
@@ -119,11 +138,12 @@ class _RecordScreenState extends State<RecordScreen> {
         actions: [
           IconButton(
             icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
+            onPressed: () async {
+              await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
               );
+              _loadCategories(); // 从设置返回时，强制刷新分类
             },
           ),
         ],

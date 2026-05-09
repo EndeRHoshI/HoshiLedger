@@ -14,11 +14,13 @@ class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
 
   // 每次切换到对应 tab 时递增，子页面监听后自动刷新
+  int _recordRefreshKey = 0;
   int _historyRefreshKey = 0;
   int _statisticsRefreshKey = 0;
 
   void _onTabSelected(int index) {
     setState(() {
+      if (index == 0) _recordRefreshKey++;
       if (index == 1) _historyRefreshKey++;
       if (index == 2) _statisticsRefreshKey++;
       _currentIndex = index;
@@ -31,7 +33,7 @@ class _MainLayoutState extends State<MainLayout> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          const RecordScreen(),
+          RecordScreen(refreshKey: _recordRefreshKey),
           HistoryScreen(refreshKey: _historyRefreshKey),
           StatisticsScreen(refreshKey: _statisticsRefreshKey),
         ],

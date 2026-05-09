@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/transaction.dart';
@@ -8,6 +9,9 @@ class DBHelper {
   static final DBHelper _instance = DBHelper._internal();
   factory DBHelper() => _instance;
   DBHelper._internal();
+
+  // 用于通知分类更新的全局通知器
+  static final ValueNotifier<int> categoryUpdateNotifier = ValueNotifier(0);
 
   static Database? _database;
 
@@ -96,7 +100,9 @@ class DBHelper {
   // --- 分类 CRUD ---
   Future<int> insertCategory(Category category) async {
     final db = await database;
-    return await db.insert('categories', category.toMap());
+    final id = await db.insert('categories', category.toMap());
+    categoryUpdateNotifier.value++; // 通知更新
+    return id;
   }
 
   Future<List<Category>> getCategories(int type) async {
@@ -121,7 +127,9 @@ class DBHelper {
 
   Future<int> deleteCategory(int id) async {
     final db = await database;
-    return await db.delete('categories', where: 'id = ?', whereArgs: [id]);
+    final count = await db.delete('categories', where: 'id = ?', whereArgs: [id]);
+    categoryUpdateNotifier.value++; // 通知更新
+    return count;
   }
 
   // --- 记账流水 CRUD ---
