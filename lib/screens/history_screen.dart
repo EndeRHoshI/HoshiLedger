@@ -79,6 +79,79 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _refreshData();
   }
 
+  Future<void> _pickMonthYear() async {
+    int tempYear = _displayMonth.year;
+    int? tempMonth;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => setLocal(() => tempYear--),
+              ),
+              Text('$tempYear年'),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => setLocal(() => tempYear++),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 280,
+            child: GridView.builder(
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 1.6,
+              ),
+              itemCount: 12,
+              itemBuilder: (_, i) {
+                final month = i + 1;
+                final isSelected = _displayMonth.year == tempYear && _displayMonth.month == month;
+                return GestureDetector(
+                  onTap: () {
+                    tempMonth = month;
+                    Navigator.pop(ctx);
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected ? Theme.of(context).colorScheme.primary : Colors.grey.withAlpha(76),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$month月',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : null,
+                        fontWeight: isSelected ? FontWeight.bold : null,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (tempMonth != null) {
+      setState(() {
+        _displayMonth = DateTime(tempYear, tempMonth!);
+      });
+      _refreshData();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     int totalExpense = 0;
@@ -110,8 +183,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1)),
-                    Text(DateFormat('yyyy年MM月').format(_displayMonth), 
-                        style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                    InkWell(
+                      onTap: _pickMonthYear,
+                      borderRadius: BorderRadius.circular(8),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                        child: Text(DateFormat('yyyy年MM月').format(_displayMonth), 
+                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                      ),
+                    ),
                     IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1)),
                   ],
                 ),
