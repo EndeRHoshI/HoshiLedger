@@ -145,18 +145,30 @@ class _CategoryManagerState extends State<CategoryManager> {
         itemBuilder: (context, index) {
           final cat = _categories[index];
           return ListTile(
-            leading: const CircleAvatar(child: Icon(Icons.category)),
+            leading: CircleAvatar(
+              backgroundColor: Theme.of(context).colorScheme.primaryContainer.withAlpha(51),
+              child: Icon(Category.getIconData(cat.icon), color: Theme.of(context).colorScheme.primary),
+            ),
             title: Text(cat.name),
-            trailing: IconButton(
-              icon: const Icon(Icons.delete_outline, color: Colors.red),
-              onPressed: () async {
-                if (_categories.length <= 1) {
-                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('至少保留一个分类')));
-                  return;
-                }
-                await DBHelper().deleteCategory(cat.id!);
-                _loadCategories();
-              },
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined),
+                  onPressed: () => _editCategory(cat),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () async {
+                    if (_categories.length <= 1) {
+                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('至少保留一个分类')));
+                      return;
+                    }
+                    await DBHelper().deleteCategory(cat.id!);
+                    _loadCategories();
+                  },
+                ),
+              ],
             ),
           );
         },
@@ -168,26 +180,93 @@ class _CategoryManagerState extends State<CategoryManager> {
     );
   }
 
+  final List<String> _availableIcons = [
+    'restaurant', 'directions_bus', 'shopping_cart', 'movie',
+    'medical_services', 'home', 'payments', 'trending_up',
+    'work', 'redeem', 'category'
+  ];
+
   Future<void> _addNewCategory() async {
-    final controller = TextEditingController();
-    final name = await showDialog<String>(
+    _showCategoryDialog();
+  }
+
+  Future<void> _editCategory(Category category) async {
+    _showCategoryDialog(category: category);
+  }
+
+  Future<void> _showCategoryDialog({Category? category}) async {
+    final controller = TextEditingController(text: category?.name);
+    String selectedIcon = category?.icon ?? 'category';
+
+    final result = await showDialog<bool>(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('新增分类'),
-        content: TextField(
-          controller: controller,
-          decoration: const InputDecoration(hintText: '输入分类名称'),
-          autofocus: true,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocalState) => AlertDialog(
+          title: Text(category == null ? '新增分类' : '编辑分类'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                decoration: const InputDecoration(hintText: '输入分类名称'),
+                autofocus: true,
+              ),
+              const SizedBox(height: 20),
+              const Text('选择图标', style: TextStyle(fontSize: 12, color: Colors.grey)),
+              const SizedBox(height: 10),
+              SizedBox(
+                width: double.maxFinite,
+                child: Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  alignment: WrapAlignment.center,
+                  children: _availableIcons.map((iconName) {
+                    final isSelected = selectedIcon == iconName;
+                    return GestureDetector(
+                      onTap: () => setLocalState(() => selectedIcon = iconName),
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Theme.of(context).colorScheme.primaryContainer : null,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: isSelected ? Theme.of(context).colorScheme.primary : Colors.transparent,
+                          ),
+                        ),
+                        child: Icon(Category.getIconData(iconName), size: 24),
+                      ),
+                    );
+                  }).toList(),
+                ),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+            TextButton(
+              onPressed: () => Navigator.pop(ctx, true),
+              child: const Text('确定'),
+            ),
+          ],
         ),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('取消')),
-          TextButton(onPressed: () => Navigator.pop(ctx, controller.text), child: const Text('确定')),
-        ],
       ),
     );
 
-    if (name != null && name.isNotEmpty) {
-      await DBHelper().insertCategory(Category(name: name, type: widget.type, icon: 'category'));
+    if (result == true && controller.text.isNotEmpty) {
+      if (category == null) {
+        await DBHelper().insertCategory(Category(
+          name: controller.text,
+          type: widget.type,
+          icon: selectedIcon,
+        ));
+      } else {
+        await DBHelper().updateCategory(Category(
+          id: category.id,
+          name: controller.text,
+          type: widget.type,
+          icon: selectedIcon,
+        ));
+      }
       _loadCategories();
     }
   }

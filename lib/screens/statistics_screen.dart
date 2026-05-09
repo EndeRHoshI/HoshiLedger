@@ -3,6 +3,7 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
+import '../models/category.dart';
 
 class StatisticsScreen extends StatefulWidget {
   final int refreshKey;
@@ -19,6 +20,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Map<String, int> _categoryTotals = {};
   int _totalExpense = 0;
   int _totalIncome = 0;
+  Map<String, String> _categoryIconMap = {};
 
   @override
   void initState() {
@@ -41,6 +43,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         : DateFormat('yyyy').format(_selectedDate);
 
     final allData = await DBHelper().getTransactionsByMonth(filter);
+    final allCats = await DBHelper().getAllCategories();
 
     Map<String, int> catTotals = {};
     int expense = 0;
@@ -60,6 +63,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       _categoryTotals = catTotals;
       _totalExpense = expense;
       _totalIncome = income;
+      _categoryIconMap = {for (var c in allCats) c.name: c.icon};
     });
   }
 
@@ -315,7 +319,11 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             padding: const EdgeInsets.symmetric(vertical: 8),
             child: Row(
               children: [
-                Container(width: 12, height: 12, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+                Icon(
+                  Category.getIconData(_categoryIconMap[cat] ?? 'category'),
+                  size: 16,
+                  color: color,
+                ),
                 const SizedBox(width: 12),
                 Text(cat, style: const TextStyle(fontSize: 16)),
                 const SizedBox(width: 8),

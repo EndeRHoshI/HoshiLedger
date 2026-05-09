@@ -1,3 +1,5 @@
+import 'package:flutter/material.dart';
+
 class Category {
   final int? id;
   final String name;
@@ -27,5 +29,32 @@ class Category {
       type: map['type'],
       icon: map['icon'],
     );
+  }
+
+  static IconData getIconData(String iconName) {
+    switch (iconName) {
+      case 'restaurant':
+        return Icons.restaurant;
+      case 'directions_bus':
+        return Icons.directions_bus;
+      case 'shopping_cart':
+        return Icons.shopping_cart;
+      case 'movie':
+        return Icons.movie;
+      case 'medical_services':
+        return Icons.medical_services;
+      case 'home':
+        return Icons.home;
+      case 'payments':
+        return Icons.payments;
+      case 'trending_up':
+        return Icons.trending_up;
+      case 'work':
+        return Icons.work;
+      case 'redeem':
+        return Icons.redeem;
+      default:
+        return Icons.category;
+    }
   }
 }

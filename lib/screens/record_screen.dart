@@ -8,7 +8,9 @@ import '../models/note_template.dart';
 
 class RecordScreen extends StatefulWidget {
   final VoidCallback onSaved;
-  const RecordScreen({super.key, required this.onSaved});
+  final TransactionModel? transaction; // 新增：用于编辑现有记录
+
+  const RecordScreen({super.key, required this.onSaved, this.transaction});
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -26,6 +28,14 @@ class _RecordScreenState extends State<RecordScreen> {
   @override
   void initState() {
     super.initState();
+    if (widget.transaction != null) {
+      // 编辑模式：初始化数据
+      _type = widget.transaction!.type;
+      _selectedCategory = widget.transaction!.category;
+      _selectedDate = DateTime.parse(widget.transaction!.date);
+      _amountController.text = (widget.transaction!.amount / 100.0).toStringAsFixed(2);
+      _noteController.text = widget.transaction!.note;
+    }
     _loadCategories();
     // 监听全局分类更新通知
     DBHelper.categoryUpdateNotifier.addListener(_loadCategories);
@@ -35,8 +45,13 @@ class _RecordScreenState extends State<RecordScreen> {
     final categories = await DBHelper().getCategories(_type);
     setState(() {
       _categories = categories;
-      if (_categories.isNotEmpty) {
+      // 如果是新增模式且未选分类，选第一个
+      if (widget.transaction == null && _selectedCategory == null && _categories.isNotEmpty) {
         _selectedCategory = _categories[0].name;
+      }
+      // 如果是编辑模式且分类不在列表中（被删了），手动补上
+      if (_selectedCategory != null && !_categories.any((c) => c.name == _selectedCategory)) {
+        _categories.insert(0, Category(name: _selectedCategory!, type: _type, icon: 'category'));
       }
     });
     await _loadNoteTemplates();
@@ -84,6 +99,7 @@ class _RecordScreenState extends State<RecordScreen> {
     final String note = _noteController.text;
 
     final record = TransactionModel(
+      id: widget.transaction?.id, // 保留原 ID
       amount: amountCents,
       type: _type,
       category: category,
@@ -91,7 +107,11 @@ class _RecordScreenState extends State<RecordScreen> {
       note: note,
     );
 
-    await DBHelper().insertTransaction(record);
+    if (widget.transaction == null) {
+      await DBHelper().insertTransaction(record);
+    } else {
+      await DBHelper().updateTransaction(record);
+    }
 
     // 自动将非空备注保存为该分类的历史备注模板
     if (note.isNotEmpty) {
@@ -108,6 +128,30 @@ class _RecordScreenState extends State<RecordScreen> {
 
     // 弹窗模式下，记录完通常直接关闭
     if (mounted) Navigator.pop(context);
+  }
+
+  Future<void> _deleteRecord() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除这条记录吗？该操作无法撤销。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && mounted) {
+      await DBHelper().deleteTransaction(widget.transaction!.id!);
+      widget.onSaved();
+      if (mounted) Navigator.pop(context);
+    }
   }
 
   @override
@@ -137,10 +181,20 @@ class _RecordScreenState extends State<RecordScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('记一笔', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  IconButton(
-                    icon: const Icon(Icons.close),
-                    onPressed: () => Navigator.pop(context),
+                  Text(widget.transaction == null ? '记一笔' : '编辑记录',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Row(
+                    children: [
+                      if (widget.transaction != null)
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: Colors.red),
+                          onPressed: _deleteRecord,
+                        ),
+                      IconButton(
+                        icon: const Icon(Icons.close),
+                        onPressed: () => Navigator.pop(context),
+                      ),
+                    ],
                   ),
                 ],
               ),
@@ -210,7 +264,7 @@ class _RecordScreenState extends State<RecordScreen> {
                     children: _categories.map((cat) {
                       final isSelected = _selectedCategory == cat.name;
                       return ActionChip(
-                        avatar: Icon(_getIconData(cat.icon), size: 18),
+                        avatar: Icon(Category.getIconData(cat.icon), size: 18),
                         label: Text(cat.name),
                         onPressed: () => _selectCategory(cat.name),
                         backgroundColor: isSelected
@@ -296,30 +350,4 @@ class _RecordScreenState extends State<RecordScreen> {
   );
 }
 
-  IconData _getIconData(String iconName) {
-    switch (iconName) {
-      case 'restaurant':
-        return Icons.restaurant;
-      case 'directions_bus':
-        return Icons.directions_bus;
-      case 'shopping_cart':
-        return Icons.shopping_cart;
-      case 'movie':
-        return Icons.movie;
-      case 'medical_services':
-        return Icons.medical_services;
-      case 'home':
-        return Icons.home;
-      case 'payments':
-        return Icons.payments;
-      case 'trending_up':
-        return Icons.trending_up;
-      case 'work':
-        return Icons.work;
-      case 'redeem':
-        return Icons.redeem;
-      default:
-        return Icons.category;
-    }
-  }
 }

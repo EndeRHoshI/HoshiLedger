@@ -115,6 +115,12 @@ class DBHelper {
     return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
   }
 
+  Future<List<Category>> getAllCategories() async {
+    final db = await database;
+    final List<Map<String, dynamic>> maps = await db.query('categories');
+    return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
+  }
+
   Future<int> updateCategory(Category category) async {
     final db = await database;
     return await db.update(
