@@ -13,26 +13,32 @@ class MainLayout extends StatefulWidget {
 class _MainLayoutState extends State<MainLayout> {
   int _currentIndex = 0;
 
-  final List<Widget> _screens = [
-    const RecordScreen(),
-    const HistoryScreen(),
-    const StatisticsScreen(),
-  ];
+  // 每次切换到对应 tab 时递增，子页面监听后自动刷新
+  int _historyRefreshKey = 0;
+  int _statisticsRefreshKey = 0;
+
+  void _onTabSelected(int index) {
+    setState(() {
+      if (index == 1) _historyRefreshKey++;
+      if (index == 2) _statisticsRefreshKey++;
+      _currentIndex = index;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: IndexedStack(
         index: _currentIndex,
-        children: _screens,
+        children: [
+          const RecordScreen(),
+          HistoryScreen(refreshKey: _historyRefreshKey),
+          StatisticsScreen(refreshKey: _statisticsRefreshKey),
+        ],
       ),
       bottomNavigationBar: NavigationBar(
         selectedIndex: _currentIndex,
-        onDestinationSelected: (index) {
-          setState(() {
-            _currentIndex = index;
-          });
-        },
+        onDestinationSelected: _onTabSelected,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.add_circle_outline),

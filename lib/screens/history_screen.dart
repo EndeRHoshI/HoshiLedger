@@ -4,7 +4,8 @@ import '../database/db_helper.dart';
 import '../models/transaction.dart';
 
 class HistoryScreen extends StatefulWidget {
-  const HistoryScreen({super.key});
+  final int refreshKey;
+  const HistoryScreen({super.key, this.refreshKey = 0});
 
   @override
   State<HistoryScreen> createState() => _HistoryScreenState();
@@ -20,6 +21,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
   void initState() {
     super.initState();
     _refreshData();
+  }
+
+  @override
+  void didUpdateWidget(HistoryScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 每次切换到本 tab 时 refreshKey 会递增，触发数据刷新
+    if (oldWidget.refreshKey != widget.refreshKey) {
+      _refreshData();
+    }
   }
 
   Future<void> _refreshData() async {

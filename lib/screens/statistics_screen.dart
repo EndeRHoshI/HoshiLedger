@@ -7,7 +7,8 @@ import '../models/transaction.dart';
 import 'settings_screen.dart';
 
 class StatisticsScreen extends StatefulWidget {
-  const StatisticsScreen({super.key});
+  final int refreshKey;
+  const StatisticsScreen({super.key, this.refreshKey = 0});
 
   @override
   State<StatisticsScreen> createState() => _StatisticsScreenState();
@@ -25,6 +26,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   void initState() {
     super.initState();
     _refreshData();
+  }
+
+  @override
+  void didUpdateWidget(StatisticsScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // 每次切换到本 tab 时 refreshKey 会递增，触发数据刷新
+    if (oldWidget.refreshKey != widget.refreshKey) {
+      _refreshData();
+    }
   }
 
   Future<void> _refreshData() async {
