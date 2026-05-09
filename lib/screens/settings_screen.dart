@@ -45,13 +45,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _manageCategories(1),
           ),
           const Divider(),
-          const AboutListTile(
-            icon: Icon(Icons.info_outline),
-            applicationName: 'HoshiLedger',
-            applicationVersion: '1.0.0',
-            aboutBoxChildren: [
-              Text('一个专注于离线隐私的极简记账应用。'),
-            ],
+          ListTile(
+            leading: const Icon(Icons.info_outline),
+            title: const Text('HoshiLedger'),
+            subtitle: const Text('版本 1.0.0 · 极简离线记账'),
           ),
         ],
       ),
