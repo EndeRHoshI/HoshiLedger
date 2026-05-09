@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
@@ -291,15 +292,15 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
   }
 
   void _selectCategory(String name) {
+    FocusScope.of(context).unfocus();
     setState(() => _selectedCategory = name);
     _loadNoteTemplates();
   }
 
   void _switchType(int type) {
+    FocusScope.of(context).unfocus();
     if (_type == type) return;
-    setState(() {
-      _type = type;
-    });
+    setState(() => _type = type);
     _loadCategories();
   }
 
@@ -354,29 +355,32 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
 
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      // 底部弹窗跟随键盘上移
-      padding: EdgeInsets.only(
-        left: 16, right: 16, top: 24,
-        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
-      ),
-      child: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 标题栏
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                const Text('编辑记录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
-                  onPressed: _delete,
-                  tooltip: '删除此记录',
-                ),
-              ],
-            ),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Padding(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 24,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+        ),
+        child: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // 标题栏
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('编辑记录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.delete_outline, color: Colors.red),
+                    onPressed: _delete,
+                    tooltip: '删除此记录',
+                  ),
+                ],
+              ),
             const SizedBox(height: 16),
 
             // 收支切换
@@ -415,6 +419,9 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
               style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
                 prefixText: '￥ ',
@@ -450,6 +457,7 @@ class _EditTransactionSheetState extends State<_EditTransactionSheet> {
               title: Text(DateFormat('yyyy年MM月dd日').format(_selectedDate)),
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
+                FocusScope.of(context).unfocus();
                 final date = await showDatePicker(
                   context: context,
                   initialDate: _selectedDate,

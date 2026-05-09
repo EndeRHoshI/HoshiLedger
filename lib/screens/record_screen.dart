@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
@@ -47,6 +48,7 @@ class _RecordScreenState extends State<RecordScreen> {
 
   /// 切换分类时，同步加载该分类的历史备注
   void _selectCategory(String name) {
+    FocusScope.of(context).unfocus();
     setState(() => _selectedCategory = name);
     _loadNoteTemplates();
   }
@@ -114,8 +116,10 @@ class _RecordScreenState extends State<RecordScreen> {
         title: const Text('极简记账'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+      body: GestureDetector(
+        onTap: () => FocusScope.of(context).unfocus(),
+        child: SingleChildScrollView(
+          padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -155,6 +159,9 @@ class _RecordScreenState extends State<RecordScreen> {
             TextField(
               controller: _amountController,
               keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              inputFormatters: [
+                FilteringTextInputFormatter.allow(RegExp(r'^\d+\.?\d{0,2}')),
+              ],
               style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
               decoration: InputDecoration(
                 prefixText: '￥ ',
@@ -196,6 +203,7 @@ class _RecordScreenState extends State<RecordScreen> {
               title: Text(DateFormat('yyyy年MM月dd日').format(_selectedDate)),
               trailing: const Icon(Icons.chevron_right),
               onTap: () async {
+                FocusScope.of(context).unfocus();
                 final date = await showDatePicker(
                   context: context,
                   initialDate: _selectedDate,
