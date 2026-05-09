@@ -38,12 +38,12 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   }
 
   Future<void> _refreshData() async {
-    final filter = _isMonthly 
-        ? DateFormat('yyyy-MM').format(_selectedDate) 
+    final filter = _isMonthly
+        ? DateFormat('yyyy-MM').format(_selectedDate)
         : DateFormat('yyyy').format(_selectedDate);
-    
+
     final allData = await DBHelper().getTransactionsByMonth(filter);
-    
+
     Map<String, int> catTotals = {};
     int expense = 0;
     int income = 0;
@@ -63,6 +63,112 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       _totalExpense = expense;
       _totalIncome = income;
     });
+  }
+
+  /// 月度模式：弹出年+月选择器
+  Future<void> _pickMonthYear() async {
+    int tempYear = _selectedDate.year;
+    int? tempMonth;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setLocal) => AlertDialog(
+          title: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              IconButton(
+                icon: const Icon(Icons.chevron_left),
+                onPressed: () => setLocal(() => tempYear--),
+              ),
+              Text('$tempYear年'),
+              IconButton(
+                icon: const Icon(Icons.chevron_right),
+                onPressed: () => setLocal(() => tempYear++),
+              ),
+            ],
+          ),
+          content: SizedBox(
+            width: 280,
+            child: GridView.builder(
+              shrinkWrap: true,
+              gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                crossAxisCount: 3,
+                childAspectRatio: 1.6,
+              ),
+              itemCount: 12,
+              itemBuilder: (_, i) {
+                final month = i + 1;
+                final isSelected = tempMonth == month;
+                return GestureDetector(
+                  onTap: () {
+                    tempMonth = month;
+                    Navigator.pop(ctx);
+                  },
+                  child: Container(
+                    margin: const EdgeInsets.all(4),
+                    decoration: BoxDecoration(
+                      color: isSelected
+                          ? Theme.of(context).colorScheme.primary
+                          : Colors.transparent,
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: isSelected
+                            ? Theme.of(context).colorScheme.primary
+                            : Colors.grey.withAlpha(76),
+                      ),
+                    ),
+                    alignment: Alignment.center,
+                    child: Text(
+                      '$month月',
+                      style: TextStyle(
+                        color: isSelected ? Colors.white : null,
+                        fontWeight: isSelected ? FontWeight.bold : null,
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      ),
+    );
+
+    if (tempMonth != null) {
+      setState(() => _selectedDate = DateTime(tempYear, tempMonth!));
+      _refreshData();
+    }
+  }
+
+  /// 年度模式：弹出年份选择器
+  Future<void> _pickYear() async {
+    DateTime? picked;
+
+    await showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('选择年份'),
+        content: SizedBox(
+          width: 300,
+          height: 300,
+          child: YearPicker(
+            firstDate: DateTime(2000),
+            lastDate: DateTime(2100),
+            selectedDate: _selectedDate,
+            onChanged: (date) {
+              picked = date;
+              Navigator.pop(ctx);
+            },
+          ),
+        ),
+      ),
+    );
+
+    if (picked != null) {
+      setState(() => _selectedDate = picked!);
+      _refreshData();
+    }
   }
 
   @override
@@ -103,22 +209,15 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 ),
                 const Spacer(),
                 TextButton.icon(
-                  onPressed: () async {
-                    // Simple logic: just show picker for month/year
-                    // For simplicity in MVP, we use showDatePicker and use its year/month
-                    final date = await showDatePicker(
-                      context: context,
-                      initialDate: _selectedDate,
-                      firstDate: DateTime(2000),
-                      lastDate: DateTime(2100),
-                    );
-                    if (date != null) {
-                      setState(() => _selectedDate = date);
-                      _refreshData();
+                  onPressed: () {
+                    if (_isMonthly) {
+                      _pickMonthYear();
+                    } else {
+                      _pickYear();
                     }
                   },
                   icon: const Icon(Icons.calendar_month),
-                  label: Text(_isMonthly 
+                  label: Text(_isMonthly
                       ? DateFormat('yyyy年MM月').format(_selectedDate)
                       : DateFormat('yyyy年').format(_selectedDate)),
                 ),
