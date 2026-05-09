@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
-import '../utils/csv_exporter.dart';
+import '../services/csv_exporter.dart';
+import '../services/theme_service.dart';
 import '../models/category.dart';
 import 'note_manager_screen.dart';
 
@@ -32,6 +33,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
             title: const Text('清空全部数据'),
             subtitle: const Text('此操作不可恢复，请谨慎操作'),
             onTap: _confirmClearData,
+          ),
+          const Divider(),
+          _buildSectionHeader('界面显示'),
+          ValueListenableBuilder<ThemeMode>(
+            valueListenable: ThemeService.themeModeNotifier,
+            builder: (context, themeMode, _) {
+              String themeText;
+              IconData themeIcon;
+              switch (themeMode) {
+                case ThemeMode.light:
+                  themeText = '浅色模式';
+                  themeIcon = Icons.light_mode;
+                  break;
+                case ThemeMode.dark:
+                  themeText = '深色模式';
+                  themeIcon = Icons.dark_mode;
+                  break;
+                case ThemeMode.system:
+                  themeText = '跟随系统';
+                  themeIcon = Icons.brightness_auto;
+                  break;
+              }
+
+              return ListTile(
+                leading: Icon(themeIcon, color: Colors.purple),
+                title: const Text('外观设置'),
+                subtitle: Text(themeText),
+                onTap: _showThemeSelector,
+              );
+            },
           ),
           const Divider(),
           _buildSectionHeader('分类管理'),
@@ -108,6 +139,41 @@ class _SettingsScreenState extends State<SettingsScreen> {
     Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => CategoryManager(type: type)),
+    );
+  }
+
+  void _showThemeSelector() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('外观设置'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildThemeOption(ThemeMode.system, '跟随系统', Icons.brightness_auto),
+            _buildThemeOption(ThemeMode.light, '浅色模式', Icons.light_mode),
+            _buildThemeOption(ThemeMode.dark, '深色模式', Icons.dark_mode),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildThemeOption(ThemeMode mode, String title, IconData icon) {
+    return ValueListenableBuilder<ThemeMode>(
+      valueListenable: ThemeService.themeModeNotifier,
+      builder: (context, currentMode, _) {
+        final isSelected = currentMode == mode;
+        return ListTile(
+          leading: Icon(icon),
+          title: Text(title),
+          trailing: isSelected ? const Icon(Icons.check, color: Colors.deepPurple) : null,
+          onTap: () {
+            ThemeService.setThemeMode(mode);
+            Navigator.pop(context);
+          },
+        );
+      },
     );
   }
 }
