@@ -57,27 +57,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _refreshData();
   }
 
-  Future<void> _deleteTransaction(int id) async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认删除'),
-        content: const Text('确定要删除这条记录吗？该操作无法撤销。'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true), 
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
 
-    if (confirmed == true) {
-      await DBHelper().deleteTransaction(id);
-      _refreshData();
-    }
+  Future<bool> _confirmDelete() async {
+    return await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('确认删除'),
+            content: const Text('确定要删除这条记录吗？该操作无法撤销。'),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, false),
+                child: const Text('取消'),
+              ),
+              TextButton(
+                onPressed: () => Navigator.pop(ctx, true),
+                style: TextButton.styleFrom(foregroundColor: Colors.red),
+                child: const Text('删除'),
+              ),
+            ],
+          ),
+        ) ??
+        false;
   }
 
   @override
@@ -195,9 +195,12 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 color: Colors.red,
                 child: const Icon(Icons.delete, color: Colors.white),
               ),
-              confirmDismiss: (dir) async {
-                await _deleteTransaction(t.id!);
-                return false; // Handle deletion in the dialog callback
+              // 只负责弹出确认对话，返回 true 则允许滑展动画执行
+              confirmDismiss: (dir) => _confirmDelete(),
+              // 动画完成后才真正执行删除
+              onDismissed: (dir) async {
+                await DBHelper().deleteTransaction(t.id!);
+                if (mounted) _refreshData();
               },
               child: ListTile(
                 leading: CircleAvatar(
