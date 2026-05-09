@@ -15,7 +15,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('设置与管理')),
+      appBar: AppBar(title: const Text('设置')),
       body: ListView(
         children: [
           _buildSectionHeader('数据管理'),
@@ -138,7 +138,7 @@ class _CategoryManagerState extends State<CategoryManager> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(widget.type == 0 ? '管理支出分类' : '管理收入分类'),
+        title: Text(widget.type == 0 ? '支出分类' : '收入分类'),
       ),
       body: ListView.builder(
         itemCount: _categories.length,

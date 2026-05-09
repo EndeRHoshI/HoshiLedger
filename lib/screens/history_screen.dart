@@ -121,7 +121,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   children: [
                     _buildSummaryItem('本月收入', totalIncome, Colors.green),
                     _buildSummaryItem('本月支出', totalExpense, Colors.red),
-                    _buildSummaryItem('结余', totalIncome - totalExpense, Colors.blue),
                   ],
                 ),
               ],

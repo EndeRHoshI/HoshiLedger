@@ -177,7 +177,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: const Text('收支统计'),
+        title: const Text('统计'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: const [],
       ),
@@ -264,7 +264,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
         Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
         const SizedBox(height: 4),
         Text(
-          '￥${(amount / 100.0).toStringAsFixed(0)}',
+          '￥${(amount / 100.0).toStringAsFixed(2)}',
           style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
         ),
       ],
