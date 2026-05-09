@@ -178,7 +178,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('统计'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: const [],
       ),
       body: Column(
