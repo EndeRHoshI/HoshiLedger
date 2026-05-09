@@ -161,7 +161,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           children: [
             _buildStatItem('总支出', _totalExpense, Colors.red),
             _buildStatItem('总收入', _totalIncome, Colors.green),
-            _buildStatItem('结余', _totalIncome - _totalExpense, Theme.of(context).colorScheme.primary),
           ],
         ),
       ),
