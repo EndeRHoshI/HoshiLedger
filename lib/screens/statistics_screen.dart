@@ -4,8 +4,6 @@ import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
 
-import 'settings_screen.dart';
-
 class StatisticsScreen extends StatefulWidget {
   final int refreshKey;
   const StatisticsScreen({super.key, this.refreshKey = 0});
@@ -177,17 +175,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       appBar: AppBar(
         title: const Text('收支统计'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              ).then((_) => _refreshData()); // Refresh if data cleared
-            },
-          ),
-        ],
+        actions: const [],
       ),
       body: Column(
         children: [

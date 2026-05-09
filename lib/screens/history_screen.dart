@@ -5,7 +5,7 @@ import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/note_template.dart';
-import 'settings_screen.dart';
+import 'record_screen.dart';
 
 class HistoryScreen extends StatefulWidget {
   final int refreshKey;
@@ -33,6 +33,18 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (oldWidget.refreshKey != widget.refreshKey) {
       _refreshData();
     }
+  }
+
+  void _showRecordSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // 允许弹窗随键盘高度调整
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => RecordScreen(onSaved: _refreshData),
+    );
   }
 
   Future<void> _refreshData() async {
@@ -93,13 +105,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
         actions: [
           IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () {
-              Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              ).then((_) => _refreshData());
-            },
+            icon: const Icon(Icons.add_circle_outline),
+            onPressed: _showRecordSheet,
           ),
         ],
       ),

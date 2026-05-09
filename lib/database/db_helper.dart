@@ -1,4 +1,4 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/foundation.dart' hide Category;
 import 'package:sqflite/sqflite.dart';
 import 'package:path/path.dart';
 import '../models/transaction.dart';

@@ -5,11 +5,10 @@ import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/note_template.dart';
-import 'settings_screen.dart';
 
 class RecordScreen extends StatefulWidget {
-  final int refreshKey;
-  const RecordScreen({super.key, this.refreshKey = 0});
+  final VoidCallback onSaved;
+  const RecordScreen({super.key, required this.onSaved});
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -30,14 +29,6 @@ class _RecordScreenState extends State<RecordScreen> {
     _loadCategories();
     // 监听全局分类更新通知
     DBHelper.categoryUpdateNotifier.addListener(_loadCategories);
-  }
-
-  @override
-  void didUpdateWidget(covariant RecordScreen oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (widget.refreshKey != oldWidget.refreshKey) {
-      _loadCategories();
-    }
   }
 
   Future<void> _loadCategories() async {
@@ -105,8 +96,9 @@ class _RecordScreenState extends State<RecordScreen> {
     // 自动将非空备注保存为该分类的历史备注模板
     if (note.isNotEmpty) {
       await DBHelper().saveNoteTemplate(category, note);
-      await _loadNoteTemplates(); // 刷新备注列表
     }
+
+    widget.onSaved(); // 通知外部刷新
 
     if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -114,11 +106,8 @@ class _RecordScreenState extends State<RecordScreen> {
       );
     }
 
-    // 连续记账：清空金额和备注，保留分类和日期
-    setState(() {
-      _amountController.clear();
-      _noteController.clear();
-    });
+    // 弹窗模式下，记录完通常直接关闭
+    if (mounted) Navigator.pop(context);
   }
 
   @override
@@ -131,30 +120,31 @@ class _RecordScreenState extends State<RecordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('极简记账'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.settings),
-            onPressed: () async {
-              await Navigator.push(
-                context,
-                MaterialPageRoute(builder: (context) => const SettingsScreen()),
-              );
-              _loadCategories(); // 从设置返回时，强制刷新分类
-            },
-          ),
-        ],
-      ),
-      body: GestureDetector(
-        onTap: () => FocusScope.of(context).unfocus(),
+    return GestureDetector(
+      onTap: () => FocusScope.of(context).unfocus(),
+      child: Container(
+        padding: EdgeInsets.only(
+          left: 16,
+          right: 16,
+          top: 20,
+          bottom: MediaQuery.of(context).viewInsets.bottom + 20,
+        ),
         child: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('记一笔', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 16),
             // 收支切换
             Row(
               children: [
