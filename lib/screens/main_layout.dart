@@ -40,6 +40,7 @@ class _MainLayoutState extends State<MainLayout> {
         selectedIndex: _currentIndex,
         onDestinationSelected: _onTabSelected,
         labelBehavior: NavigationDestinationLabelBehavior.alwaysHide,
+        height: 50,
         destinations: const [
           NavigationDestination(
             icon: Icon(Icons.list_alt_outlined),
