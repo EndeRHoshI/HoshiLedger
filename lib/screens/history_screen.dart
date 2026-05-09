@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
+import '../models/category.dart';
 
 class HistoryScreen extends StatefulWidget {
   final int refreshKey;
@@ -26,7 +27,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void didUpdateWidget(HistoryScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 每次切换到本 tab 时 refreshKey 会递增，触发数据刷新
     if (oldWidget.refreshKey != widget.refreshKey) {
       _refreshData();
     }
@@ -35,12 +35,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
   Future<void> _refreshData() async {
     final monthStr = DateFormat('yyyy-MM').format(_displayMonth);
     final data = await DBHelper().getTransactionsByMonth(monthStr);
-    
+
     int expense = 0;
     int income = 0;
     for (var t in data) {
-      if (t.type == 0) expense += t.amount;
-      else income += t.amount;
+      if (t.type == 0) {
+        expense += t.amount;
+      } else {
+        income += t.amount;
+      }
     }
 
     setState(() {
@@ -57,27 +60,26 @@ class _HistoryScreenState extends State<HistoryScreen> {
     _refreshData();
   }
 
-
-  Future<bool> _confirmDelete() async {
-    return await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('确认删除'),
-            content: const Text('确定要删除这条记录吗？该操作无法撤销。'),
-            actions: [
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, false),
-                child: const Text('取消'),
-              ),
-              TextButton(
-                onPressed: () => Navigator.pop(ctx, true),
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: const Text('删除'),
-              ),
-            ],
-          ),
-        ) ??
-        false;
+  /// 点击记录，弹出编辑底部弹窗
+  void _showEditSheet(TransactionModel transaction) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true, // 允许底部弹窗跟随键盘
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (ctx) => _EditTransactionSheet(
+        transaction: transaction,
+        onSaved: () {
+          Navigator.pop(ctx);
+          _refreshData();
+        },
+        onDeleted: () {
+          Navigator.pop(ctx);
+          _refreshData();
+        },
+      ),
+    );
   }
 
   @override
@@ -89,7 +91,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
       body: Column(
         children: [
-          // Month Selector and Summary
+          // 月份选择器和收支汇总
           Container(
             padding: const EdgeInsets.all(16),
             color: Theme.of(context).colorScheme.surfaceContainerHighest.withAlpha(76),
@@ -119,7 +121,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
             ),
           ),
 
-          // Transaction List
+          // 记录列表
           Expanded(
             child: _transactions.isEmpty
                 ? const Center(child: Text('本月暂无记录', style: TextStyle(color: Colors.grey)))
@@ -143,7 +145,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   Widget _buildGroupedList() {
-    // Group transactions by date
+    // 按日期分组
     Map<String, List<TransactionModel>> grouped = {};
     for (var t in _transactions) {
       if (!grouped.containsKey(t.date)) {
@@ -159,18 +161,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
       itemBuilder: (context, index) {
         final date = sortedDates[index];
         final dayTransactions = grouped[date]!;
-        
-        // Calculate daily total
+
         int dailyExpense = 0;
         int dailyIncome = 0;
         for (var t in dayTransactions) {
-          if (t.type == 0) dailyExpense += t.amount;
-          else dailyIncome += t.amount;
+          if (t.type == 0) {
+            dailyExpense += t.amount;
+          } else {
+            dailyIncome += t.amount;
+          }
         }
 
         return Column(
           children: [
-            // Daily Header
+            // 日期标题栏
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
               color: Theme.of(context).colorScheme.surfaceContainerLowest,
@@ -179,50 +183,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 children: [
                   Text(date, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                   Text(
-                    '收: ${(dailyIncome/100).toStringAsFixed(2)}  支: ${(dailyExpense/100).toStringAsFixed(2)}',
+                    '收: ${(dailyIncome / 100).toStringAsFixed(2)}  支: ${(dailyExpense / 100).toStringAsFixed(2)}',
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
                 ],
               ),
             ),
-            // Daily Transactions
-            ...dayTransactions.map((t) => Dismissible(
-              key: Key('trans_${t.id}'),
-              direction: DismissDirection.endToStart,
-              background: Container(
-                alignment: Alignment.centerRight,
-                padding: const EdgeInsets.only(right: 20),
-                color: Colors.red,
-                child: const Icon(Icons.delete, color: Colors.white),
-              ),
-              // 只负责弹出确认对话，返回 true 则允许滑展动画执行
-              confirmDismiss: (dir) => _confirmDelete(),
-              // 动画完成后才真正执行删除
-              onDismissed: (dir) async {
-                await DBHelper().deleteTransaction(t.id!);
-                if (mounted) _refreshData();
-              },
-              child: ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: t.type == 0 ? Colors.red.withAlpha(25) : Colors.green.withAlpha(25),
-                  child: Icon(
-                    _getIconForCategory(t.category),
-                    color: t.type == 0 ? Colors.red : Colors.green,
-                    size: 20,
+            // 当日记录列表（点击进入编辑弹窗）
+            ...dayTransactions.map((t) => ListTile(
+                  onTap: () => _showEditSheet(t),
+                  leading: CircleAvatar(
+                    backgroundColor: t.type == 0 ? Colors.red.withAlpha(25) : Colors.green.withAlpha(25),
+                    child: Icon(
+                      _getIconForCategory(t.category),
+                      color: t.type == 0 ? Colors.red : Colors.green,
+                      size: 20,
+                    ),
                   ),
-                ),
-                title: Text(t.category),
-                subtitle: t.note.isNotEmpty ? Text(t.note) : null,
-                trailing: Text(
-                  '${t.type == 0 ? "-" : "+"}${(t.amount / 100.0).toStringAsFixed(2)}',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.bold,
-                    color: t.type == 0 ? Colors.red : Colors.green,
+                  title: Text(t.category),
+                  subtitle: t.note.isNotEmpty ? Text(t.note, maxLines: 1, overflow: TextOverflow.ellipsis) : null,
+                  trailing: Text(
+                    '${t.type == 0 ? "-" : "+"}${(t.amount / 100.0).toStringAsFixed(2)}',
+                    style: TextStyle(
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                      color: t.type == 0 ? Colors.red : Colors.green,
+                    ),
                   ),
-                ),
-              ),
-            )),
+                )),
           ],
         );
       },
@@ -230,13 +218,271 @@ class _HistoryScreenState extends State<HistoryScreen> {
   }
 
   IconData _getIconForCategory(String name) {
-    // Simple mapping for now
     switch (name) {
-      case '餐饮': return Icons.restaurant;
-      case '交通': return Icons.directions_bus;
-      case '购物': return Icons.shopping_cart;
-      case '工资': return Icons.payments;
-      default: return Icons.category;
+      case '餐饮':
+        return Icons.restaurant;
+      case '交通':
+        return Icons.directions_bus;
+      case '购物':
+        return Icons.shopping_cart;
+      case '工资':
+        return Icons.payments;
+      default:
+        return Icons.category;
     }
+  }
+}
+
+// -------------------------------------------------------
+// 编辑记录底部弹窗
+// -------------------------------------------------------
+class _EditTransactionSheet extends StatefulWidget {
+  final TransactionModel transaction;
+  final VoidCallback onSaved;
+  final VoidCallback onDeleted;
+
+  const _EditTransactionSheet({
+    required this.transaction,
+    required this.onSaved,
+    required this.onDeleted,
+  });
+
+  @override
+  State<_EditTransactionSheet> createState() => _EditTransactionSheetState();
+}
+
+class _EditTransactionSheetState extends State<_EditTransactionSheet> {
+  late TextEditingController _amountController;
+  late TextEditingController _noteController;
+  late int _type;
+  late String _selectedCategory;
+  late DateTime _selectedDate;
+  List<Category> _categories = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _type = widget.transaction.type;
+    _selectedCategory = widget.transaction.category;
+    _selectedDate = DateTime.parse(widget.transaction.date);
+    _amountController = TextEditingController(
+      text: (widget.transaction.amount / 100.0).toStringAsFixed(2),
+    );
+    _noteController = TextEditingController(text: widget.transaction.note);
+    _loadCategories();
+  }
+
+  Future<void> _loadCategories() async {
+    final cats = await DBHelper().getCategories(_type);
+    setState(() {
+      _categories = cats;
+      // 如果当前分类不在列表中，保留原值
+      if (!_categories.any((c) => c.name == _selectedCategory)) {
+        _categories.insert(0, Category(name: _selectedCategory, type: _type, icon: 'category'));
+      }
+    });
+  }
+
+  void _switchType(int type) {
+    if (_type == type) return;
+    setState(() {
+      _type = type;
+    });
+    _loadCategories();
+  }
+
+  Future<void> _save() async {
+    final amountText = _amountController.text;
+    final double? amountDouble = double.tryParse(amountText);
+    if (amountDouble == null || amountDouble <= 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('请输入有效的金额')),
+      );
+      return;
+    }
+
+    final updated = TransactionModel(
+      id: widget.transaction.id,
+      amount: (amountDouble * 100).round(),
+      type: _type,
+      category: _selectedCategory,
+      date: DateFormat('yyyy-MM-dd').format(_selectedDate),
+      note: _noteController.text,
+    );
+
+    await DBHelper().updateTransaction(updated);
+    widget.onSaved();
+  }
+
+  Future<void> _delete() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('确认删除'),
+        content: const Text('确定要删除这条记录吗？该操作无法撤销。'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('删除'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      await DBHelper().deleteTransaction(widget.transaction.id!);
+      widget.onDeleted();
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      // 底部弹窗跟随键盘上移
+      padding: EdgeInsets.only(
+        left: 16, right: 16, top: 24,
+        bottom: MediaQuery.of(context).viewInsets.bottom + 24,
+      ),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // 标题栏
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                const Text('编辑记录', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: _delete,
+                  tooltip: '删除此记录',
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 收支切换
+            Row(
+              children: [
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Center(child: Text('支出')),
+                    selected: _type == 0,
+                    onSelected: (_) => _switchType(0),
+                    selectedColor: Colors.red.withAlpha(51),
+                    labelStyle: TextStyle(
+                      color: _type == 0 ? Colors.red : null,
+                      fontWeight: _type == 0 ? FontWeight.bold : null,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: ChoiceChip(
+                    label: const Center(child: Text('收入')),
+                    selected: _type == 1,
+                    onSelected: (_) => _switchType(1),
+                    selectedColor: Colors.green.withAlpha(51),
+                    labelStyle: TextStyle(
+                      color: _type == 1 ? Colors.green : null,
+                      fontWeight: _type == 1 ? FontWeight.bold : null,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+
+            // 金额输入
+            TextField(
+              controller: _amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+              decoration: InputDecoration(
+                prefixText: '￥ ',
+                labelText: '金额',
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 分类选择
+            const Text('分类', style: TextStyle(color: Colors.grey, fontSize: 13)),
+            const SizedBox(height: 8),
+            _categories.isEmpty
+                ? const Text('暂无分类')
+                : Wrap(
+                    spacing: 8,
+                    runSpacing: 4,
+                    children: _categories.map((cat) {
+                      final isSelected = _selectedCategory == cat.name;
+                      return ChoiceChip(
+                        label: Text(cat.name),
+                        selected: isSelected,
+                        onSelected: (_) => setState(() => _selectedCategory = cat.name),
+                      );
+                    }).toList(),
+                  ),
+            const SizedBox(height: 16),
+
+            // 日期选择
+            ListTile(
+              contentPadding: EdgeInsets.zero,
+              leading: const Icon(Icons.calendar_today),
+              title: Text(DateFormat('yyyy年MM月dd日').format(_selectedDate)),
+              trailing: const Icon(Icons.chevron_right),
+              onTap: () async {
+                final date = await showDatePicker(
+                  context: context,
+                  initialDate: _selectedDate,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (date != null) {
+                  setState(() => _selectedDate = date);
+                }
+              },
+            ),
+            const Divider(),
+
+            // 备注输入
+            TextField(
+              controller: _noteController,
+              decoration: const InputDecoration(
+                hintText: '备注（选填）',
+                prefixIcon: Icon(Icons.notes),
+                border: InputBorder.none,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            // 保存按钮
+            SizedBox(
+              width: double.infinity,
+              height: 50,
+              child: ElevatedButton(
+                onPressed: _save,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Theme.of(context).colorScheme.primary,
+                  foregroundColor: Theme.of(context).colorScheme.onPrimary,
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+                child: const Text('保存修改', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
   }
 }
