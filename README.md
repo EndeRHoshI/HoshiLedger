@@ -1,17 +1,44 @@
-# hoshi_ledger
+# HoshiLedger 极简离线记账
 
-A new Flutter project.
+HoshiLedger 是一款基于 Flutter 开发的极简、完全离线的记账应用。本项目致力于提供无广告、不依赖网络的基础记账体验，确保用户数据的完全隐私与安全。
 
-## Getting Started
+## 设计目标
 
-This project is a starting point for a Flutter application.
+- **高效记录**：简化交互流程，支持快速连续记账。
+- **隐私安全**：数据完全保存在设备本地，无任何云端同步或网络请求。
+- **数据准确**：从底层避免常见的浮点数计算误差。
 
-A few resources to get you started if this is your first Flutter project:
+## 技术实现说明
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+本项目在实现上采用了以下方案，以便于理解的方式进行说明：
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+1. **金额整数化存储**：
+   为了避免程序在处理小数计算（如 0.1 + 0.2）时产生的精度丢失问题，数据库中所有的金额字段均以“分”为单位（整型）进行存储。在界面展示时，再将其除以 100 转换为“元”。这样可以确保财务数据的绝对准确。
+
+2. **物理级别的离线设计**：
+   应用在配置文件中完全移除了网络访问权限。这意味着应用从系统层面就无法连接网络，确保了用户的记账数据只能保存在手机本地，无法被上传。
+
+3. **数据按日分组**：
+   在账单流水页面，所有的交易记录会在逻辑层按日期进行分组，并自动计算每日的收支总额，方便用户直观地查看每一天的资金流向。
+
+4. **灵活的分类管理**：
+   应用内置了基础的收支分类。同时提供了分类管理功能，允许用户自由添加、修改名称或删除不需要的分类，以满足个人的记账习惯。
+
+5. **本地 CSV 数据备份**：
+   考虑到应用完全离线，为了防止用户更换手机时数据丢失，应用实现了本地 CSV 导出功能。用户可以将所有记录导出为标准的表格文件，并通过手机系统的分享功能发送给其他应用（如文件管理器或通讯软件）进行备份。
+
+## 核心功能模块
+
+- **记账页**：提供金额输入、收支切换及分类选择。支持记录保存后保留当前日期和分类，便于快速连续录入多笔账单。
+- **账单流水**：按月筛选并按天分组展示历史记录，支持列表项左滑删除。
+- **统计视图**：提供月度与年度的收支统计，包含支出类别的饼图分析和具体的金额占比列表。
+- **设置与管理**：提供分类的增删管理入口，以及全量数据导出（CSV）和数据一键清空功能。
+
+## 运行项目
+
+1. 确保已在本地配置好 [Flutter 开发环境](https://docs.flutter.dev/get-started/install)。
+2. 连接 Android 或 iOS 测试设备，并开启开发者模式/USB调试。
+3. 在项目根目录下执行以下命令：
+   ```bash
+   flutter run
+   ```
