@@ -14,7 +14,8 @@ class StatisticsScreen extends StatefulWidget {
   State<StatisticsScreen> createState() => _StatisticsScreenState();
 }
 
-class _StatisticsScreenState extends State<StatisticsScreen> {
+class _StatisticsScreenState extends State<StatisticsScreen>
+    with SingleTickerProviderStateMixin {
   bool _isMonthly = true;
   DateTime _selectedDate = DateTime.now();
   List<TransactionModel> _data = [];
@@ -23,6 +24,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   int _totalExpense = 0;
   int _totalIncome = 0;
   Map<String, String> _categoryIconMap = {};
+
+  late TabController _tabController;
 
   static const List<Color> _chartColors = [
     Color(0xFF6C63FF), Color(0xFFFF6584), Color(0xFF43C59E),
@@ -33,7 +36,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   void initState() {
     super.initState();
+    _tabController = TabController(length: 2, vsync: this);
     _refreshData();
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
   }
 
   @override
@@ -205,6 +215,9 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final hasExpense = _totalExpense > 0;
+    final hasIncome = _totalIncome > 0;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('统计'),
@@ -212,6 +225,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
       body: Column(
         children: [
+          // 月度/年度切换 + 日期选择
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -230,11 +244,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                 const Spacer(),
                 TextButton.icon(
                   onPressed: () {
-                    if (_isMonthly) {
-                      _pickMonthYear();
-                    } else {
-                      _pickYear();
-                    }
+                    if (_isMonthly) { _pickMonthYear(); } else { _pickYear(); }
                   },
                   icon: const Icon(Icons.calendar_month),
                   label: Text(_currentPeriodLabel),
@@ -243,41 +253,79 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             ),
           ),
 
-          Expanded(
-            child: _data.isEmpty
-                ? const Center(child: Text('暂无数据'))
-                : SingleChildScrollView(
-                    child: Column(
-                      children: [
-                        _buildOverviewCard(),
-                        if (_totalExpense > 0) ...[
-                          _buildSectionTitle('支出构成', Colors.red),
-                          _buildPieChart(_expenseCatTotals, _totalExpense),
-                          _buildCategoryList(_expenseCatTotals, _totalExpense, 0),
-                        ],
-                        if (_totalIncome > 0) ...[
-                          _buildSectionTitle('收入构成', Colors.green),
-                          _buildPieChart(_incomeCatTotals, _totalIncome),
-                          _buildCategoryList(_incomeCatTotals, _totalIncome, 1),
-                        ],
-                        const SizedBox(height: 32),
-                      ],
-                    ),
-                  ),
-          ),
-        ],
-      ),
-    );
-  }
+          // 概览卡片
+          _buildOverviewCard(),
 
-  Widget _buildSectionTitle(String text, Color color) {
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
-      child: Row(
-        children: [
-          Container(width: 4, height: 18, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
-          const SizedBox(width: 8),
-          Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 8),
+
+          // 支出/收入 Tab
+          if (_data.isNotEmpty && (hasExpense || hasIncome)) ...[
+            TabBar(
+              controller: _tabController,
+              tabs: [
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_upward, size: 14, color: Colors.red),
+                      const SizedBox(width: 4),
+                      Text('支出构成',
+                          style: TextStyle(
+                              color: hasExpense ? null : Colors.grey)),
+                    ],
+                  ),
+                ),
+                Tab(
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      const Icon(Icons.arrow_downward, size: 14, color: Colors.green),
+                      const SizedBox(width: 4),
+                      Text('收入构成',
+                          style: TextStyle(
+                              color: hasIncome ? null : Colors.grey)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
+                children: [
+                  // 支出页
+                  hasExpense
+                      ? SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              _buildPieChart(_expenseCatTotals, _totalExpense),
+                              _buildCategoryList(_expenseCatTotals, _totalExpense, 0),
+                              const SizedBox(height: 32),
+                            ],
+                          ),
+                        )
+                      : const Center(child: Text('本期无支出数据')),
+                  // 收入页
+                  hasIncome
+                      ? SingleChildScrollView(
+                          child: Column(
+                            children: [
+                              const SizedBox(height: 8),
+                              _buildPieChart(_incomeCatTotals, _totalIncome),
+                              _buildCategoryList(_incomeCatTotals, _totalIncome, 1),
+                              const SizedBox(height: 32),
+                            ],
+                          ),
+                        )
+                      : const Center(child: Text('本期无收入数据')),
+                ],
+              ),
+            ),
+          ],
+
+          if (_data.isEmpty)
+            const Expanded(child: Center(child: Text('暂无数据'))),
         ],
       ),
     );
@@ -318,7 +366,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ..sort((a, b) => b.value.compareTo(a.value));
 
     final List<PieChartSectionData> sections = [];
-
     for (int i = 0; i < sortedCats.length; i++) {
       sections.add(PieChartSectionData(
         value: sortedCats[i].value.toDouble(),
@@ -378,7 +425,8 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                             Text(cat, style: const TextStyle(fontSize: 15)),
                             const SizedBox(width: 6),
                             Text('$percentage%',
-                                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                                style: const TextStyle(
+                                    color: Colors.grey, fontSize: 12)),
                           ],
                         ),
                         const SizedBox(height: 4),
@@ -395,16 +443,10 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     ),
                   ),
                   const SizedBox(width: 12),
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.end,
-                    children: [
-                      Text(
-                        '￥${(amount / 100.0).toStringAsFixed(2)}',
-                        style: TextStyle(fontWeight: FontWeight.bold, color: amountColor),
-                      ),
-                      const SizedBox(height: 2),
-                      const Text('查看明细 >', style: TextStyle(fontSize: 10, color: Colors.grey)),
-                    ],
+                  Text(
+                    '￥${(amount / 100.0).toStringAsFixed(2)}',
+                    style: TextStyle(
+                        fontWeight: FontWeight.bold, color: amountColor),
                   ),
                 ],
               ),
