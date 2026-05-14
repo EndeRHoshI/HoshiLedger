@@ -77,7 +77,7 @@ class DataManager {
           if (row.length < 6) continue; // 跳过残缺的行
           
           double amountDouble = double.tryParse(row[1].toString()) ?? 0.0;
-          int amount = (amountDouble * 100).toInt();
+          int amount = (amountDouble * 100).round();
           int type = row[2].toString() == '支出' ? 0 : 1;
           String category = row[3].toString();
           String date = row[4].toString();

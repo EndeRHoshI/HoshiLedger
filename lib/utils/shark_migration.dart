@@ -60,7 +60,7 @@ class SharkMigration {
 
           // Amount
           double amountDouble = double.tryParse(row[4].toString().trim()) ?? 0.0;
-          int amount = (amountDouble * 100).toInt();
+          int amount = (amountDouble * 100).round();
 
           // Note
           String note = row[5].toString().trim();
