@@ -291,7 +291,7 @@ class _CategoryManagerState extends State<CategoryManager> {
                 TextField(
                   controller: controller,
                   decoration: const InputDecoration(hintText: '输入分类名称'),
-                  autofocus: true,
+                  autofocus: false,
                 ),
                 const SizedBox(height: 20),
                 const Text('选择图标', style: TextStyle(fontSize: 12, color: Colors.grey)),
