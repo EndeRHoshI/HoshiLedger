@@ -294,12 +294,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
             _buildStatItem('总支出', _totalExpense, Colors.red),
             Container(width: 1, height: 40, color: Colors.grey.withAlpha(60)),
             _buildStatItem('总收入', _totalIncome, Colors.green),
-            Container(width: 1, height: 40, color: Colors.grey.withAlpha(60)),
-            _buildStatItem(
-              '结余',
-              _totalIncome - _totalExpense,
-              _totalIncome >= _totalExpense ? Colors.green : Colors.red,
-            ),
           ],
         ),
       ),
