@@ -36,6 +36,17 @@ void main() async {
         
         String category = row[2].toString().trim();
         uniqueCategories.add(category);
+        
+        double amountDouble = double.tryParse(row[4].toString().trim()) ?? 0.0;
+        String note = row[5].toString().trim();
+
+        if (amountDouble == 0) {
+          print('Found 0 amount row: $row');
+        }
+        if (category.contains('平账') || category.contains('退款') || note.contains('平账') || note.contains('退款')) {
+          print('Found potential excluded row: $row');
+        }
+
         dataRowCount++;
       }
     } catch (e) {

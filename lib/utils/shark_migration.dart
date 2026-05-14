@@ -117,6 +117,10 @@ class SharkMigration {
           );
 
           await db.insertTransaction(t);
+          // 同步写入备注模板，方便后续新建同类账单时智能提示
+          if (note.isNotEmpty) {
+            await db.saveNoteTemplate(category, note);
+          }
           importedCount++;
         }
       } catch (e) {

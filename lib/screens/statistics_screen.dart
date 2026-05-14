@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
+import 'category_transactions_screen.dart';
 
 class StatisticsScreen extends StatefulWidget {
   final int refreshKey;
@@ -14,13 +15,20 @@ class StatisticsScreen extends StatefulWidget {
 }
 
 class _StatisticsScreenState extends State<StatisticsScreen> {
-  bool _isMonthly = true; // true for Month, false for Year
+  bool _isMonthly = true;
   DateTime _selectedDate = DateTime.now();
   List<TransactionModel> _data = [];
-  Map<String, int> _categoryTotals = {};
+  Map<String, int> _expenseCatTotals = {};
+  Map<String, int> _incomeCatTotals = {};
   int _totalExpense = 0;
   int _totalIncome = 0;
   Map<String, String> _categoryIconMap = {};
+
+  static const List<Color> _chartColors = [
+    Color(0xFF6C63FF), Color(0xFFFF6584), Color(0xFF43C59E),
+    Color(0xFFFFBE0B), Color(0xFF4ECDC4), Color(0xFFFF6B6B),
+    Color(0xFF45B7D1), Color(0xFF96CEB4), Color(0xFFFECEA8), Color(0xFFDDA0DD),
+  ];
 
   @override
   void initState() {
@@ -31,7 +39,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   @override
   void didUpdateWidget(StatisticsScreen oldWidget) {
     super.didUpdateWidget(oldWidget);
-    // 每次切换到本 tab 时 refreshKey 会递增，触发数据刷新
     if (oldWidget.refreshKey != widget.refreshKey) {
       _refreshData();
     }
@@ -45,29 +52,53 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     final allData = await DBHelper().getTransactionsByMonth(filter);
     final allCats = await DBHelper().getAllCategories();
 
-    Map<String, int> catTotals = {};
+    Map<String, int> expTotals = {};
+    Map<String, int> incTotals = {};
     int expense = 0;
     int income = 0;
 
     for (var t in allData) {
       if (t.type == 0) {
         expense += t.amount;
-        catTotals[t.category] = (catTotals[t.category] ?? 0) + t.amount;
+        expTotals[t.category] = (expTotals[t.category] ?? 0) + t.amount;
       } else {
         income += t.amount;
+        incTotals[t.category] = (incTotals[t.category] ?? 0) + t.amount;
       }
     }
 
     setState(() {
       _data = allData;
-      _categoryTotals = catTotals;
+      _expenseCatTotals = expTotals;
+      _incomeCatTotals = incTotals;
       _totalExpense = expense;
       _totalIncome = income;
       _categoryIconMap = {for (var c in allCats) c.name: c.icon};
     });
   }
 
-  /// 月度模式：弹出年+月选择器
+  String get _currentPeriodLabel => _isMonthly
+      ? DateFormat('yyyy年MM月').format(_selectedDate)
+      : DateFormat('yyyy年').format(_selectedDate);
+
+  String get _currentPeriodFilter => _isMonthly
+      ? DateFormat('yyyy-MM').format(_selectedDate)
+      : DateFormat('yyyy').format(_selectedDate);
+
+  void _navigateToCategoryDetail(String category, int type) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CategoryTransactionsScreen(
+          categoryName: category,
+          periodLabel: _currentPeriodLabel,
+          periodFilter: _currentPeriodFilter,
+          transactionType: type,
+        ),
+      ),
+    );
+  }
+
   Future<void> _pickMonthYear() async {
     int tempYear = _selectedDate.year;
     int? tempMonth;
@@ -143,7 +174,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     }
   }
 
-  /// 年度模式：弹出年份选择器
   Future<void> _pickYear() async {
     DateTime? picked;
 
@@ -182,7 +212,6 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
       ),
       body: Column(
         children: [
-          // Toggle and Date Selector
           Padding(
             padding: const EdgeInsets.all(16.0),
             child: Row(
@@ -208,9 +237,7 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                     }
                   },
                   icon: const Icon(Icons.calendar_month),
-                  label: Text(_isMonthly
-                      ? DateFormat('yyyy年MM月').format(_selectedDate)
-                      : DateFormat('yyyy年').format(_selectedDate)),
+                  label: Text(_currentPeriodLabel),
                 ),
               ],
             ),
@@ -224,18 +251,33 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
                       children: [
                         _buildOverviewCard(),
                         if (_totalExpense > 0) ...[
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 16),
-                            child: Text('支出构成', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                          ),
-                          _buildPieChart(),
-                          _buildCategoryList(),
+                          _buildSectionTitle('支出构成', Colors.red),
+                          _buildPieChart(_expenseCatTotals, _totalExpense),
+                          _buildCategoryList(_expenseCatTotals, _totalExpense, 0),
+                        ],
+                        if (_totalIncome > 0) ...[
+                          _buildSectionTitle('收入构成', Colors.green),
+                          _buildPieChart(_incomeCatTotals, _totalIncome),
+                          _buildCategoryList(_incomeCatTotals, _totalIncome, 1),
                         ],
                         const SizedBox(height: 32),
                       ],
                     ),
                   ),
           ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionTitle(String text, Color color) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 24, 16, 8),
+      child: Row(
+        children: [
+          Container(width: 4, height: 18, decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(2))),
+          const SizedBox(width: 8),
+          Text(text, style: const TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
         ],
       ),
     );
@@ -250,7 +292,14 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             _buildStatItem('总支出', _totalExpense, Colors.red),
+            Container(width: 1, height: 40, color: Colors.grey.withAlpha(60)),
             _buildStatItem('总收入', _totalIncome, Colors.green),
+            Container(width: 1, height: 40, color: Colors.grey.withAlpha(60)),
+            _buildStatItem(
+              '结余',
+              _totalIncome - _totalExpense,
+              _totalIncome >= _totalExpense ? Colors.green : Colors.red,
+            ),
           ],
         ),
       ),
@@ -260,29 +309,28 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
   Widget _buildStatItem(String label, int amount, Color color) {
     return Column(
       children: [
-        Text(label, style: const TextStyle(fontSize: 14, color: Colors.grey)),
+        Text(label, style: const TextStyle(fontSize: 13, color: Colors.grey)),
         const SizedBox(height: 4),
         Text(
-          '￥${(amount / 100.0).toStringAsFixed(2)}',
-          style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
+          '￥${(amount.abs() / 100.0).toStringAsFixed(2)}',
+          style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: color),
         ),
       ],
     );
   }
 
-  Widget _buildPieChart() {
-    final sortedCats = _categoryTotals.entries.toList()
+  Widget _buildPieChart(Map<String, int> catTotals, int total) {
+    final sortedCats = catTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
     final List<PieChartSectionData> sections = [];
-    final colors = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple, Colors.teal];
 
     for (int i = 0; i < sortedCats.length; i++) {
       sections.add(PieChartSectionData(
         value: sortedCats[i].value.toDouble(),
         title: '',
         radius: 50,
-        color: colors[i % colors.length],
+        color: _chartColors[i % _chartColors.length],
       ));
     }
 
@@ -298,38 +346,74 @@ class _StatisticsScreenState extends State<StatisticsScreen> {
     );
   }
 
-  Widget _buildCategoryList() {
-    final sortedCats = _categoryTotals.entries.toList()
+  Widget _buildCategoryList(Map<String, int> catTotals, int total, int type) {
+    final sortedCats = catTotals.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
-    final colors = [Colors.blue, Colors.red, Colors.green, Colors.orange, Colors.purple, Colors.teal];
+    final amountColor = type == 0 ? Colors.red : Colors.green;
 
     return Padding(
-      padding: const EdgeInsets.all(16.0),
+      padding: const EdgeInsets.symmetric(horizontal: 16.0),
       child: Column(
         children: sortedCats.asMap().entries.map((entry) {
           final idx = entry.key;
           final cat = entry.value.key;
           final amount = entry.value.value;
-          final percentage = (amount / _totalExpense * 100).toStringAsFixed(1);
-          final color = colors[idx % colors.length];
+          final percentage = (amount / total * 100).toStringAsFixed(1);
+          final color = _chartColors[idx % _chartColors.length];
 
-          return Padding(
-            padding: const EdgeInsets.symmetric(vertical: 8),
-            child: Row(
-              children: [
-                Icon(
-                  Category.getIconData(_categoryIconMap[cat] ?? 'category'),
-                  size: 16,
-                  color: color,
-                ),
-                const SizedBox(width: 12),
-                Text(cat, style: const TextStyle(fontSize: 16)),
-                const SizedBox(width: 8),
-                Text('$percentage%', style: const TextStyle(color: Colors.grey, fontSize: 12)),
-                const Spacer(),
-                Text('￥${(amount / 100.0).toStringAsFixed(2)}', style: const TextStyle(fontWeight: FontWeight.bold)),
-              ],
+          return InkWell(
+            onTap: () => _navigateToCategoryDetail(cat, type),
+            borderRadius: BorderRadius.circular(8),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 4),
+              child: Row(
+                children: [
+                  Icon(
+                    Category.getIconData(_categoryIconMap[cat] ?? 'category'),
+                    size: 18,
+                    color: color,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Text(cat, style: const TextStyle(fontSize: 15)),
+                            const SizedBox(width: 6),
+                            Text('$percentage%',
+                                style: const TextStyle(color: Colors.grey, fontSize: 12)),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(2),
+                          child: LinearProgressIndicator(
+                            value: amount / total,
+                            color: color,
+                            backgroundColor: color.withAlpha(40),
+                            minHeight: 3,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        '￥${(amount / 100.0).toStringAsFixed(2)}',
+                        style: TextStyle(fontWeight: FontWeight.bold, color: amountColor),
+                      ),
+                      const SizedBox(height: 2),
+                      const Text('查看明细 >', style: TextStyle(fontSize: 10, color: Colors.grey)),
+                    ],
+                  ),
+                ],
+              ),
             ),
           );
         }).toList(),
