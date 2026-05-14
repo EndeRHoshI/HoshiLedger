@@ -2,6 +2,7 @@ import 'package:flutter/services.dart' show rootBundle;
 import 'package:csv/csv.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
+import '../models/category.dart';
 
 class SharkMigration {
   static const List<String> filesToMigrate = [
@@ -15,6 +16,9 @@ class SharkMigration {
   static Future<int> runMigration() async {
     final db = DBHelper();
     int importedCount = 0;
+
+    final existingCategories = await db.getAllCategories();
+    final Set<String> existingCategoryKeys = existingCategories.map((c) => '${c.name}_${c.type}').toSet();
 
     for (String path in filesToMigrate) {
       try {
@@ -48,6 +52,11 @@ class SharkMigration {
 
           // Category
           String category = row[2].toString().trim();
+          
+          if (!existingCategoryKeys.contains('${category}_${type}')) {
+            await db.insertCategory(Category(name: category, type: type, icon: 'star'));
+            existingCategoryKeys.add('${category}_${type}');
+          }
 
           // Amount
           double amountDouble = double.tryParse(row[4].toString().trim()) ?? 0.0;
