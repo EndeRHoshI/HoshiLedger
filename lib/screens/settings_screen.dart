@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import '../database/db_helper.dart';
 import '../utils/data_manager.dart';
+import '../utils/shark_migration.dart';
 import '../services/theme_service.dart';
 import '../models/category.dart';
 import 'note_manager_screen.dart';
@@ -98,6 +99,22 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.info_outline),
             title: const Text('HoshiLedger'),
             subtitle: const Text('版本 1.0.0 · 极简离线记账'),
+          ),
+          const Divider(),
+          ListTile(
+            leading: const Icon(Icons.warning, color: Colors.amber),
+            title: const Text('【临时】迁移鲨鱼记账数据'),
+            subtitle: const Text('一键导入 assets 中的 CSV 数据（用完即可删掉）'),
+            onTap: () async {
+              showDialog(
+                context: context,
+                barrierDismissible: false,
+                builder: (ctx) => const AlertDialog(content: Text('正在迁移中，请稍候...')),
+              );
+              int count = await SharkMigration.runMigration();
+              Navigator.pop(context);
+              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入了 $count 条记录！')));
+            },
           ),
         ],
       ),
