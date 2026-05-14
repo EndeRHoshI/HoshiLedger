@@ -13,6 +13,48 @@ class SharkMigration {
     'assets/鲨鱼记账明细1778744448764(1)_utf8.csv',
   ];
 
+  static String _getIconForCategory(String categoryName) {
+    switch (categoryName) {
+      case '办公': return 'business_center';
+      case '住房': return 'home';
+      case '日用': return 'shopping_cart';
+      case '娱乐': return 'sports_esports';
+      case '汽车': return 'directions_car';
+      case '工资': return 'attach_money';
+      case '亲友': return 'people';
+      case '餐饮': return 'restaurant';
+      case '结婚': return 'favorite';
+      case '其它': return 'more_horiz';
+      case '通讯': return 'smartphone';
+      case '交通': return 'directions_bus';
+      case '美容': return 'face';
+      case '奖金': return 'emoji_events';
+      case '礼物': return 'redeem';
+      case '长辈': return 'elderly';
+      case '居家': return 'chair';
+      case '医疗': return 'medical_services';
+      case '服饰': return 'checkroom';
+      case '水族': return 'phishing';
+      case '数码': return 'devices';
+      case '旅行': return 'flight';
+      case '蔬菜': return 'eco';
+      case '水果': return 'local_dining';
+      case '罚款': return 'gavel';
+      case '书籍': return 'menu_book';
+      case '礼金': return 'volunteer_activism';
+      case '学习': return 'school';
+      case '零食': return 'fastfood';
+      case '购物': return 'local_mall';
+      case '理财': return 'trending_up';
+      case '社交': return 'groups';
+      case '维修': return 'build';
+      case '宠物': return 'pets';
+      case '兼职': return 'work';
+      case '运动': return 'fitness_center';
+      default: return 'category';
+    }
+  }
+
   static Future<int> runMigration() async {
     final db = DBHelper();
     int importedCount = 0;
@@ -54,7 +96,8 @@ class SharkMigration {
           String category = row[2].toString().trim();
           
           if (!existingCategoryKeys.contains('${category}_${type}')) {
-            await db.insertCategory(Category(name: category, type: type, icon: 'star'));
+            String smartIcon = _getIconForCategory(category);
+            await db.insertCategory(Category(name: category, type: type, icon: smartIcon));
             existingCategoryKeys.add('${category}_${type}');
           }
 
