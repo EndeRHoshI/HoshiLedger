@@ -250,11 +250,11 @@ class _CategoryManagerState extends State<CategoryManager> {
     // 餐饮
     'restaurant', 'fastfood', 'local_cafe',
     // 交通
-    'directions_bus', 'local_gas_station', 'flight',
+    'directions_bus', 'directions_car', 'local_taxi', 'train', 'two_wheeler', 'local_gas_station', 'flight',
     // 购物生活
-    'shopping_cart', 'checkroom', 'pets',
+    'shopping_cart', 'phone_iphone', 'computer', 'checkroom', 'pets',
     // 娱乐运动
-    'movie', 'sports_esports', 'fitness_center',
+    'movie', 'sports_esports', 'fitness_center', 'icecream', 'liquor',
     // 家居医疗
     'home', 'electrical_services', 'handyman', 'medical_services',
     // 教育个人

@@ -39,16 +39,24 @@ class Category {
       case 'local_cafe': return Icons.local_cafe;
       // 交通类
       case 'directions_bus': return Icons.directions_bus;
+      case 'directions_car': return Icons.directions_car;
+      case 'local_taxi': return Icons.local_taxi;
+      case 'train': return Icons.train;
+      case 'two_wheeler': return Icons.two_wheeler;
       case 'local_gas_station': return Icons.local_gas_station;
       case 'flight': return Icons.flight;
       // 购物与生活
       case 'shopping_cart': return Icons.shopping_cart;
+      case 'phone_iphone': return Icons.phone_iphone;
+      case 'computer': return Icons.computer;
       case 'checkroom': return Icons.checkroom;
       case 'pets': return Icons.pets;
       // 娱乐与运动
       case 'movie': return Icons.movie;
       case 'sports_esports': return Icons.sports_esports;
       case 'fitness_center': return Icons.fitness_center;
+      case 'icecream': return Icons.icecream;
+      case 'liquor': return Icons.liquor;
       // 医疗与家居
       case 'medical_services': return Icons.medical_services;
       case 'home': return Icons.home;
