@@ -260,8 +260,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   Text(date, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
                   Text(
                     [
-                      if (dailyIncome > 0) '收: ${(dailyIncome / 100).toStringAsFixed(2)}',
-                      if (dailyExpense > 0) '支: ${(dailyExpense / 100).toStringAsFixed(2)}',
+                      if (dailyIncome > 0) '收入: ${(dailyIncome / 100).toStringAsFixed(2)}',
+                      if (dailyExpense > 0) '支出: ${(dailyExpense / 100).toStringAsFixed(2)}',
                     ].join('  '),
                     style: const TextStyle(fontSize: 12, color: Colors.grey),
                   ),
@@ -279,9 +279,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                     ),
                   ),
                   title: Text(t.note.isNotEmpty ? t.note : t.category),
-                  subtitle: t.note.isNotEmpty
-                      ? Text(t.category, style: const TextStyle(fontSize: 12))
-                      : null,
+                  subtitle: null,
                   trailing: Text(
                     '${t.type == 0 ? "-" : "+"}${(t.amount / 100.0).toStringAsFixed(2)}',
                     style: TextStyle(
