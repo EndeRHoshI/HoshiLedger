@@ -19,7 +19,7 @@ class SharkMigration {
     for (String path in filesToMigrate) {
       try {
         final csvString = await rootBundle.loadString(path);
-        final List<List<dynamic>> rows = const CsvToListConverter().convert(csvString);
+        final List<List<dynamic>> rows = const CsvToListConverter(eol: '\n').convert(csvString);
 
         if (rows.isEmpty) continue;
 
