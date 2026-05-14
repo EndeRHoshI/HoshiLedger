@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
+import 'dart:io';
+import 'package:file_picker/file_picker.dart';
 import '../database/db_helper.dart';
-import '../utils/csv_exporter.dart';
+import '../utils/data_manager.dart';
 import '../services/theme_service.dart';
 import '../models/category.dart';
 import 'note_manager_screen.dart';
@@ -21,12 +23,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
         children: [
           _buildSectionHeader('数据管理'),
           ListTile(
-            leading: const Icon(Icons.file_download, color: Colors.blue),
-            title: const Text('导出数据为 CSV'),
-            subtitle: const Text('保存账单到手机本地或分享'),
-            onTap: () async {
-              await CSVExporter.exportAllTransactions();
-            },
+            leading: const Icon(Icons.file_upload, color: Colors.blue),
+            title: const Text('导出数据备份'),
+            subtitle: const Text('支持导出为 CSV 或 JSON'),
+            onTap: _showExportDialog,
+          ),
+          ListTile(
+            leading: const Icon(Icons.file_download, color: Colors.teal),
+            title: const Text('导入/恢复数据'),
+            subtitle: const Text('从 JSON 或 CSV 恢复账单'),
+            onTap: _importData,
           ),
           ListTile(
             leading: const Icon(Icons.delete_forever, color: Colors.red),
@@ -110,6 +116,71 @@ class _SettingsScreenState extends State<SettingsScreen> {
         ),
       ),
     );
+  }
+
+  void _showExportDialog() {
+    showModalBottomSheet(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Wrap(
+          children: [
+            ListTile(
+              leading: const Icon(Icons.table_chart, color: Colors.green),
+              title: const Text('导出为 CSV'),
+              subtitle: const Text('适合在 Excel 中查看和统计'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await DataManager.exportToCSV();
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.code, color: Colors.orange),
+              title: const Text('导出为 JSON'),
+              subtitle: const Text('包含完整结构，最适合用于日后恢复'),
+              onTap: () async {
+                Navigator.pop(ctx);
+                await DataManager.exportToJSON();
+              },
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _importData() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('恢复数据警告'),
+        content: const Text('导入备份文件将彻底覆盖并清空当前所有的账单记录，是否继续？'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: Colors.red),
+            child: const Text('确定覆盖'),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      FilePickerResult? result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['json', 'csv'],
+      );
+
+      if (result != null && result.files.single.path != null) {
+        File file = File(result.files.single.path!);
+        bool success = await DataManager.importData(file);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(success ? '数据恢复成功' : '数据恢复失败，文件格式可能有误')),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _confirmClearData() async {
