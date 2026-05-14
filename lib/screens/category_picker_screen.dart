@@ -113,21 +113,19 @@ class _CategoryPickerScreenState extends State<CategoryPickerScreen>
     return Scaffold(
       appBar: AppBar(
         automaticallyImplyLeading: false,
-        title: TabBar(
-          controller: _tabController,
-          tabs: const [
-            Tab(text: '支出'),
-            Tab(text: '收入'),
+        title: Row(
+          children: [
+            Expanded(
+              child: TabBar(
+                controller: _tabController,
+                tabs: const [Tab(text: '支出'), Tab(text: '收入')],
+                isScrollable: false,
+                indicatorSize: TabBarIndicatorSize.label,
+              ),
+            ),
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('取消')),
           ],
-          isScrollable: false,
-          indicatorSize: TabBarIndicatorSize.label,
         ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text('取消'),
-          ),
-        ],
       ),
       body: TabBarView(
         controller: _tabController,
