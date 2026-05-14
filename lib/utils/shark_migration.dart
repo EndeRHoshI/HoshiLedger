@@ -62,6 +62,9 @@ class SharkMigration {
     final existingCategories = await db.getAllCategories();
     final Set<String> existingCategoryKeys = existingCategories.map((c) => '${c.name}_${c.type}').toSet();
 
+    // 全局去重 key: 日期|收支类型|类别|金额|备注
+    final Set<String> seenKeys = {};
+
     for (String path in filesToMigrate) {
       try {
         final csvString = await rootBundle.loadString(path);
@@ -107,6 +110,11 @@ class SharkMigration {
 
           // Note
           String note = row[5].toString().trim();
+
+          // 去重检查：日期|收支类型|类别|原始金额|备注 五元素联合唯一键
+          String dedupKey = '$parsedDate|$rawType|$category|${row[4].toString().trim()}|$note';
+          if (seenKeys.contains(dedupKey)) continue;
+          seenKeys.add(dedupKey);
 
           final t = TransactionModel(
             amount: amount,
