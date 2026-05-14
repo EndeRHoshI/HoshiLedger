@@ -62,10 +62,13 @@ class SharkMigration {
     final existingCategories = await db.getAllCategories();
     final Set<String> existingCategoryKeys = existingCategories.map((c) => '${c.name}_${c.type}').toSet();
 
-    // 全局去重 key: 日期|收支类型|类别|金额|备注
-    final Set<String> seenKeys = {};
+    // 跨文件去重 key: 日期|收支类型|类别|原始金额|备注
+    // 仅在不同文件之间去重，同一文件内的重复视为真实数据保留
+    final Set<String> crossFileSeenKeys = {};
 
     for (String path in filesToMigrate) {
+      // 每个文件内的 key 集合，用于判断当前记录是否来自本文件
+      final Set<String> thisFileKeys = {};
       try {
         final csvString = await rootBundle.loadString(path);
         final List<List<dynamic>> rows = const CsvToListConverter(eol: '\n').convert(csvString);
@@ -113,8 +116,10 @@ class SharkMigration {
 
           // 去重检查：日期|收支类型|类别|原始金额|备注 五元素联合唯一键
           String dedupKey = '$parsedDate|$rawType|$category|${row[4].toString().trim()}|$note';
-          if (seenKeys.contains(dedupKey)) continue;
-          seenKeys.add(dedupKey);
+          // 只跳过来自其他文件的重复（跨文件边界日期），同文件内的重复保留
+          if (crossFileSeenKeys.contains(dedupKey) && !thisFileKeys.contains(dedupKey)) continue;
+          thisFileKeys.add(dedupKey);
+          crossFileSeenKeys.add(dedupKey);
 
           final t = TransactionModel(
             amount: amount,
