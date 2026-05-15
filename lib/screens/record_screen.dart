@@ -189,24 +189,28 @@ class _RecordScreenState extends State<RecordScreen> {
               ),
             ),
 
-            // 历史备注快捷 Chip
+            // 历史备注快捷横向列表
             if (_noteTemplates.isNotEmpty) ...[
-              const SizedBox(height: 8),
-              Wrap(
-                spacing: 6,
-                runSpacing: 4,
-                children: _noteTemplates.map((t) => ActionChip(
-                      label: Text(t.note, style: const TextStyle(fontSize: 12)),
-                      padding: const EdgeInsets.symmetric(horizontal: 4),
-                      visualDensity: VisualDensity.compact,
-                      onPressed: () {
-                        setState(() => _noteController.text = t.note);
-                        // 光标移到末尾
-                        _noteController.selection = TextSelection.fromPosition(
-                          TextPosition(offset: t.note.length),
-                        );
-                      },
-                    )).toList(),
+              const SizedBox(height: 4),
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  children: _noteTemplates.map((t) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text(t.note, style: const TextStyle(fontSize: 12)),
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            setState(() => _noteController.text = t.note);
+                            _noteController.selection = TextSelection.fromPosition(
+                              TextPosition(offset: t.note.length),
+                            );
+                          },
+                        ),
+                      )).toList(),
+                ),
               ),
             ],
             const SizedBox(height: 32),
