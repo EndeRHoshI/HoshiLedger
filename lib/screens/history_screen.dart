@@ -78,13 +78,20 @@ class _HistoryScreenState extends State<HistoryScreen> {
 
   Future<void> _performSave() async {
     final t = _editingTransaction;
-    debugPrint('HoshiLog: _performSave triggered, t=$t, isSaving=$_isSaving');
     if (t == null || !mounted || _isSaving) return;
+    // 金额模式下，点击空白只退出不保存，需要点保存按鈕才提交金额
+    if (_editMode == 'amount') {
+      setState(() {
+        _editingTransaction = null;
+        _editMode = null;
+      });
+      FocusManager.instance.primaryFocus?.unfocus();
+      return;
+    }
     _isSaving = true;
     
-    final note = _editMode == 'note' ? _noteController.text : t.note;
-    final amountStr = _editMode == 'amount' ? _amountController.text : _editAmount;
-    final amountDouble = double.tryParse(amountStr) ?? (t.amount / 100.0);
+    final note = _noteController.text;
+    final amountDouble = double.tryParse(_editAmount) ?? (t.amount / 100.0);
     final updated = TransactionModel(
       id: t.id,
       amount: (amountDouble * 100).round(),
@@ -104,6 +111,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
     if (note.isNotEmpty) {
       await DBHelper().saveNoteTemplate(updated.category, note);
     }
+    _isSaving = false;
+    _refreshData();
+  }
+
+  // 金额模式专用——点击保存按鈕才执行
+  Future<void> _saveAmount() async {
+    final t = _editingTransaction;
+    if (t == null || !mounted || _isSaving) return;
+    _isSaving = true;
+    
+    final amountStr = _amountController.text;
+    final amountDouble = double.tryParse(amountStr) ?? (t.amount / 100.0);
+    final updated = TransactionModel(
+      id: t.id,
+      amount: (amountDouble * 100).round(),
+      type: _editType,
+      category: _editCategory ?? t.category,
+      date: DateFormat('yyyy-MM-dd').format(_editDate),
+      note: t.note,
+    );
+    
+    setState(() {
+      _editingTransaction = null;
+      _editMode = null;
+    });
+    FocusManager.instance.primaryFocus?.unfocus();
+    
+    await DBHelper().updateTransaction(updated);
     _isSaving = false;
     _refreshData();
   }
@@ -201,7 +236,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // 金额内联编辑面板（替代 showModalBottomSheet）
   Widget _buildAmountPanel() {
     return GestureDetector(
-      onTap: () {}, // 阻止事件穿透
+      onTap: () {},
       behavior: HitTestBehavior.opaque,
       child: Container(
         color: Theme.of(context).colorScheme.surface,
@@ -209,7 +244,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const Divider(height: 1),
-            // 日期选择行
             ListTile(
               dense: true,
               leading: const Icon(Icons.calendar_today, size: 18),
@@ -230,9 +264,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 }
               },
             ),
-            // 金额输入
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
               child: TextField(
                 controller: _amountController,
                 focusNode: _amountFocusNode,
@@ -243,6 +276,17 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                   hintText: '0.00',
                   isDense: true,
+                ),
+              ),
+            ),
+            // 保存按鈕
+            Align(
+              alignment: Alignment.centerRight,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(0, 4, 16, 12),
+                child: FilledButton(
+                  onPressed: _saveAmount,
+                  child: const Text('保存'),
                 ),
               ),
             ),
