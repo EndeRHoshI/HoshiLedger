@@ -4,6 +4,7 @@ import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/note_template.dart';
+import 'package:flutter/scheduler.dart';
 import 'record_screen.dart';
 import 'category_picker_screen.dart';
 
@@ -23,23 +24,23 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // 内联编辑状态
   TransactionModel? _editingTransaction;
   final TextEditingController _noteController = TextEditingController();
+  final TextEditingController _amountController = TextEditingController();
   final FocusNode _noteFocusNode = FocusNode();
+  final FocusNode _amountFocusNode = FocusNode();
   List<NoteTemplate> _noteSuggestions = [];
   String? _editCategory;
   int _editType = 0;
   DateTime _editDate = DateTime.now();
   String _editAmount = '';
-  bool _autoSave = true; // 防止切换 amount/category 时触发误保存
+  bool _isSaving = false;
+  // 编辑模式：'note' | 'amount' | null
+  String? _editMode;
 
   @override
   void initState() {
     super.initState();
     _refreshData();
-    _noteFocusNode.addListener(() {
-      if (!_noteFocusNode.hasFocus && _editingTransaction != null && _autoSave) {
-        _performSave();
-      }
-    });
+    // 移除可能引起 assertion 错误的 FocusNode 监听器，改用 TextField 的 onTapOutside
   }
 
   @override
@@ -51,7 +52,9 @@ class _HistoryScreenState extends State<HistoryScreen> {
   @override
   void dispose() {
     _noteController.dispose();
+    _amountController.dispose();
     _noteFocusNode.dispose();
+    _amountFocusNode.dispose();
     super.dispose();
   }
 
@@ -59,58 +62,103 @@ class _HistoryScreenState extends State<HistoryScreen> {
     final monthStr = DateFormat('yyyy-MM').format(_displayMonth);
     final data = await DBHelper().getTransactionsByMonth(monthStr);
     final allCats = await DBHelper().getAllCategories();
-    setState(() {
-      _transactions = data;
-      _categoryIconMap = {for (var c in allCats) c.name: c.icon};
+    
+    if (!mounted) return;
+    
+    // 使用 addPostFrameCallback 确保在当前帧结束后再更新 UI，彻底避开 unmount 冲突
+    SchedulerBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        setState(() {
+          _transactions = data;
+          _categoryIconMap = {for (var c in allCats) c.name: c.icon};
+        });
+      }
     });
   }
 
   Future<void> _performSave() async {
     final t = _editingTransaction;
-    if (t == null) return;
-    setState(() => _editingTransaction = null);
-
-    final amountDouble = double.tryParse(_editAmount) ?? (t.amount / 100.0);
+    debugPrint('HoshiLog: _performSave triggered, t=$t, isSaving=$_isSaving');
+    if (t == null || !mounted || _isSaving) return;
+    _isSaving = true;
+    
+    final note = _editMode == 'note' ? _noteController.text : t.note;
+    final amountStr = _editMode == 'amount' ? _amountController.text : _editAmount;
+    final amountDouble = double.tryParse(amountStr) ?? (t.amount / 100.0);
     final updated = TransactionModel(
       id: t.id,
       amount: (amountDouble * 100).round(),
       type: _editType,
       category: _editCategory ?? t.category,
       date: DateFormat('yyyy-MM-dd').format(_editDate),
-      note: _noteController.text,
+      note: note,
     );
+    
+    setState(() {
+      _editingTransaction = null;
+      _editMode = null;
+    });
+    FocusManager.instance.primaryFocus?.unfocus();
+    
     await DBHelper().updateTransaction(updated);
-    if (_noteController.text.isNotEmpty) {
-      await DBHelper().saveNoteTemplate(updated.category, _noteController.text);
+    if (note.isNotEmpty) {
+      await DBHelper().saveNoteTemplate(updated.category, note);
     }
+    _isSaving = false;
     _refreshData();
   }
 
-  void _startEditing(TransactionModel t) async {
+  void _startEditingNote(TransactionModel t) async {
+    if (_editingTransaction != null && _editingTransaction!.id != t.id) {
+      await _performSave();
+    }
+    if (!mounted) return;
     _noteController.text = t.note;
     _editCategory = t.category;
     _editType = t.type;
     _editDate = DateTime.parse(t.date);
     _editAmount = (t.amount / 100.0).toStringAsFixed(2);
-
     final suggestions = await DBHelper().getNoteTemplates(t.category);
     setState(() {
       _editingTransaction = t;
+      _editMode = 'note';
       _noteSuggestions = suggestions;
     });
-    Future.delayed(const Duration(milliseconds: 80), () => _noteFocusNode.requestFocus());
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (mounted) _noteFocusNode.requestFocus();
+    });
+  }
+
+  void _startEditingAmount(TransactionModel t) async {
+    if (_editingTransaction != null && _editingTransaction!.id != t.id) {
+      await _performSave();
+    }
+    if (!mounted) return;
+    _noteController.text = t.note;
+    _editCategory = t.category;
+    _editType = t.type;
+    _editDate = DateTime.parse(t.date);
+    _editAmount = (t.amount / 100.0).toStringAsFixed(2);
+    _amountController.text = _editAmount;
+    setState(() {
+      _editingTransaction = t;
+      _editMode = 'amount';
+    });
+    Future.delayed(const Duration(milliseconds: 80), () {
+      if (mounted) _amountFocusNode.requestFocus();
+    });
   }
 
   void _cancelEditing() {
-    _autoSave = false;
-    FocusScope.of(context).unfocus();
-    setState(() => _editingTransaction = null);
-    _autoSave = true;
+    FocusManager.instance.primaryFocus?.unfocus();
+    setState(() {
+      _editingTransaction = null;
+      _editMode = null;
+    });
   }
 
   Future<void> _openCategoryPicker() async {
-    _autoSave = false;
-    FocusScope.of(context).unfocus();
+    FocusManager.instance.primaryFocus?.unfocus();
 
     final result = await Navigator.push<Category>(
       context,
@@ -122,78 +170,86 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
 
-    if (result != null) {
+    if (result != null && _editingTransaction != null && mounted) {
+      final t = _editingTransaction!;
       _editCategory = result.name;
       _editType = result.type;
-      final suggestions = await DBHelper().getNoteTemplates(result.name);
+      final amountDouble = double.tryParse(_editAmount) ?? (t.amount / 100.0);
+      final updated = TransactionModel(
+        id: t.id,
+        amount: (amountDouble * 100).round(),
+        type: result.type,
+        category: result.name,
+        date: DateFormat('yyyy-MM-dd').format(_editDate),
+        note: _noteController.text,
+      );
+      await DBHelper().updateTransaction(updated);
       setState(() {
-        _noteSuggestions = suggestions;
+        _editingTransaction = null;
+        _editMode = null;
         _categoryIconMap[result.name] = result.icon;
       });
+      _refreshData();
+    } else if (mounted) {
+      setState(() {
+        _editingTransaction = null;
+        _editMode = null;
+      });
     }
-
-    _autoSave = true;
-    if (result != null) _performSave();
   }
 
-  Future<void> _openAmountSheet() async {
-    _autoSave = false;
-    FocusScope.of(context).unfocus();
-
-    final amountCtrl = TextEditingController(text: _editAmount == '0.00' ? '' : _editAmount);
-    DateTime sheetDate = _editDate;
-
-    await showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      isDismissible: true,
-      builder: (ctx) => Padding(
-        padding: EdgeInsets.only(bottom: MediaQuery.of(ctx).viewInsets.bottom),
-        child: StatefulBuilder(
-          builder: (ctx, setSheet) => Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const SizedBox(height: 8),
-              Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.withAlpha(80), borderRadius: BorderRadius.circular(2))),
-              ListTile(
-                leading: const Icon(Icons.calendar_today),
-                title: Text(DateFormat('yyyy年MM月dd日').format(sheetDate)),
-                trailing: const Icon(Icons.chevron_right),
-                onTap: () async {
-                  final picked = await showDatePicker(
-                    context: ctx,
-                    initialDate: sheetDate,
-                    firstDate: DateTime(2000),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) setSheet(() => sheetDate = picked);
-                },
+  // 金额内联编辑面板（替代 showModalBottomSheet）
+  Widget _buildAmountPanel() {
+    return GestureDetector(
+      onTap: () {}, // 阻止事件穿透
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        color: Theme.of(context).colorScheme.surface,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Divider(height: 1),
+            // 日期选择行
+            ListTile(
+              dense: true,
+              leading: const Icon(Icons.calendar_today, size: 18),
+              title: Text(
+                DateFormat('yyyy年MM月dd日').format(_editDate),
+                style: const TextStyle(fontSize: 14),
               ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
-                child: TextField(
-                  controller: amountCtrl,
-                  autofocus: true,
-                  keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                  style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold),
-                  decoration: InputDecoration(
-                    prefixText: '￥',
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
-                    hintText: '0.00',
-                  ),
+              trailing: const Icon(Icons.chevron_right, size: 18),
+              onTap: () async {
+                final picked = await showDatePicker(
+                  context: context,
+                  initialDate: _editDate,
+                  firstDate: DateTime(2000),
+                  lastDate: DateTime(2100),
+                );
+                if (picked != null && mounted) {
+                  setState(() => _editDate = picked);
+                }
+              },
+            ),
+            // 金额输入
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 4, 16, 16),
+              child: TextField(
+                controller: _amountController,
+                focusNode: _amountFocusNode,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                decoration: InputDecoration(
+                  prefixText: '￥',
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                  hintText: '0.00',
+                  isDense: true,
                 ),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
-
-    _editAmount = amountCtrl.text.isEmpty ? _editAmount : amountCtrl.text;
-    _editDate = sheetDate;
-    amountCtrl.dispose();
-    _autoSave = true;
-    _performSave();
   }
 
   void _showFullEditSheet(TransactionModel t) {
@@ -283,88 +339,107 @@ class _HistoryScreenState extends State<HistoryScreen> {
     }
     final isEditing = _editingTransaction != null;
 
-    return GestureDetector(
-      onTap: () { if (isEditing) FocusScope.of(context).unfocus(); },
-      child: Scaffold(
-        appBar: AppBar(
-          title: const Text('账单'),
-          actions: [
-            if (isEditing)
-              TextButton(onPressed: _cancelEditing, child: const Text('取消'))
-            else
-              IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: _showRecordSheet),
-          ],
-        ),
-        body: Column(
-          children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-              child: Column(
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1)),
-                      InkWell(
-                        onTap: _pickMonthYear,
-                        borderRadius: BorderRadius.circular(8),
-                        child: Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                          child: Text(DateFormat('yyyy年MM月').format(_displayMonth),
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-                        ),
-                      ),
-                      IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1)),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceAround,
-                    children: [
-                      _buildSummaryItem('本月收入', totalIncome, Colors.green),
-                      _buildSummaryItem('本月支出', totalExpense, Colors.red),
-                    ],
-                  ),
-                ],
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('账单'),
+        actions: [
+          if (isEditing)
+            TextButton(onPressed: _cancelEditing, child: const Text('取消'))
+          else
+            IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: _showRecordSheet),
+        ],
+      ),
+      body: Stack(
+        children: [
+          // 底层背景：点击空白处保存并取消编辑
+          if (isEditing)
+            Positioned.fill(
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () {
+                  debugPrint('HoshiLog: Background tapped, saving...');
+                  FocusManager.instance.primaryFocus?.unfocus();
+                  _performSave();
+                },
               ),
             ),
-            const Divider(height: 1),
-            Expanded(child: _buildGroupedList()),
-            if (isEditing) _buildSuggestionsBar(),
-          ],
-        ),
+          // 列表内容
+          Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
+                child: Column(
+                  children: [
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        IconButton(icon: const Icon(Icons.chevron_left), onPressed: () => _changeMonth(-1)),
+                        InkWell(
+                          onTap: _pickMonthYear,
+                          borderRadius: BorderRadius.circular(8),
+                          child: Padding(
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                            child: Text(DateFormat('yyyy年MM月').format(_displayMonth),
+                                style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+                          ),
+                        ),
+                        IconButton(icon: const Icon(Icons.chevron_right), onPressed: () => _changeMonth(1)),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceAround,
+                      children: [
+                        _buildSummaryItem('本月收入', totalIncome, Colors.green),
+                        _buildSummaryItem('本月支出', totalExpense, Colors.red),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(child: _buildGroupedList()),
+              if (isEditing && _editMode == 'note') _buildSuggestionsBar(),
+              if (isEditing && _editMode == 'amount') _buildAmountPanel(),
+            ],
+          ),
+        ],
       ),
     );
   }
 
   Widget _buildSuggestionsBar() {
-    return Container(
-      color: Theme.of(context).colorScheme.surfaceContainerLow,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          const Divider(height: 1),
-          SizedBox(
-            height: 44,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
-              children: _noteSuggestions.isEmpty
-                  ? [const Center(child: Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('暂无推荐备注', style: TextStyle(color: Colors.grey, fontSize: 13))))]
-                  : _noteSuggestions.map((s) => Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: ActionChip(
-                        label: Text(s.note, style: const TextStyle(fontSize: 13)),
-                        visualDensity: VisualDensity.compact,
-                        onPressed: () {
-                          _noteController.text = s.note;
-                          _noteController.selection = TextSelection.fromPosition(TextPosition(offset: s.note.length));
-                        },
-                      ),
-                    )).toList(),
+    return GestureDetector(
+      onTap: () {}, // 阻止点击穿透到底层背景触发保存
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        color: Theme.of(context).colorScheme.surface,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Divider(height: 1),
+            SizedBox(
+              height: 52,
+              child: ListView(
+                scrollDirection: Axis.horizontal,
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+                children: _noteSuggestions.isEmpty
+                    ? [const Center(child: Padding(padding: EdgeInsets.symmetric(horizontal: 12), child: Text('暂无推荐备注', style: TextStyle(color: Colors.grey, fontSize: 13))))]
+                    : _noteSuggestions.map((s) => Padding(
+                        padding: const EdgeInsets.only(right: 8),
+                        child: ActionChip(
+                          label: Text(s.note, style: const TextStyle(fontSize: 13)),
+                          visualDensity: VisualDensity.compact,
+                          onPressed: () {
+                            _noteController.text = s.note;
+                            _noteController.selection = TextSelection.fromPosition(TextPosition(offset: s.note.length));
+                          },
+                        ),
+                      )).toList(),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -401,21 +476,27 @@ class _HistoryScreenState extends State<HistoryScreen> {
         }
         return Column(
           children: [
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-              color: Theme.of(context).colorScheme.surfaceContainerLowest,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(date, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
-                  Text(
-                    [
-                      if (dailyIncome > 0) '收入: ${(dailyIncome / 100).toStringAsFixed(2)}',
-                      if (dailyExpense > 0) '支出: ${(dailyExpense / 100).toStringAsFixed(2)}',
-                    ].join('  '),
-                    style: const TextStyle(fontSize: 12, color: Colors.grey),
-                  ),
-                ],
+            GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTap: () {
+                if (_editingTransaction != null) _performSave();
+              },
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                color: Theme.of(context).colorScheme.surfaceContainerLowest,
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(date, style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.grey)),
+                    Text(
+                      [
+                        if (dailyIncome > 0) '收入: ${(dailyIncome / 100).toStringAsFixed(2)}',
+                        if (dailyExpense > 0) '支出: ${(dailyExpense / 100).toStringAsFixed(2)}',
+                      ].join('  '),
+                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                    ),
+                  ],
+                ),
               ),
             ),
             ...dayTxns.map((t) => _buildRow(t)),
@@ -451,34 +532,47 @@ class _HistoryScreenState extends State<HistoryScreen> {
                   ),
                 ),
               ),
-              // 备注输入框（高亮）
+              // 备注区域：金额模式下显示文字，备注模式下显示输入框
               Expanded(
-                child: Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 4),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: Theme.of(context).colorScheme.primary, width: 1.5),
-                  ),
-                  child: TextField(
-                    controller: _noteController,
-                    focusNode: _noteFocusNode,
-                    decoration: const InputDecoration(
-                      hintText: '备注',
-                      border: InputBorder.none,
-                      contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-                      isDense: true,
-                    ),
-                  ),
-                ),
+                child: _editMode == 'note'
+                    ? Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 4),
+                        decoration: BoxDecoration(
+                          color: Theme.of(context).colorScheme.surface,
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(color: Theme.of(context).colorScheme.primary, width: 1.5),
+                        ),
+                        child: TextField(
+                          controller: _noteController,
+                          focusNode: _noteFocusNode,
+                          decoration: const InputDecoration(
+                            hintText: '备注',
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                            isDense: true,
+                          ),
+                        ),
+                      )
+                    : GestureDetector(
+                        onTap: () => setState(() => _editMode = 'note'),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
+                          child: Text(
+                            _noteController.text.isNotEmpty ? _noteController.text : t.note.isNotEmpty ? t.note : t.category,
+                            style: const TextStyle(fontSize: 15),
+                          ),
+                        ),
+                      ),
               ),
-              // 金额 → 打开金额弹窗
+              // 金额 → 切换到金额编辑模式
               GestureDetector(
-                onTap: _openAmountSheet,
+                onTap: () => setState(() => _editMode = 'amount'),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
                   child: Text(
-                    _editAmount,
+                    _editMode == 'amount'
+                        ? (_amountController.text.isEmpty ? _editAmount : _amountController.text)
+                        : _editAmount,
                     style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: iconColor),
                   ),
                 ),
@@ -489,8 +583,15 @@ class _HistoryScreenState extends State<HistoryScreen> {
       );
     }
 
-    // 普通行：长按打开全量编辑，各区域点击进入对应编辑
+    // 普通行：点击 item 空白处尝试保存当前编辑
     return InkWell(
+      splashColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      onTap: () {
+        if (_editingTransaction != null) {
+          _performSave();
+        }
+      },
       onLongPress: () => _showFullEditSheet(t),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
@@ -498,9 +599,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
           children: [
             GestureDetector(
               onTap: () async {
-                _startEditing(t);
-                await Future.delayed(const Duration(milliseconds: 120));
-                _openCategoryPicker();
+                if (_editingTransaction != null) await _performSave();
+                
+                // 直接记录状态并打开，但不设置 _editingTransaction，避免 UI 切换到编辑行
+                _editCategory = t.category;
+                _editType = t.type;
+                _editDate = DateTime.parse(t.date);
+                _editAmount = (t.amount / 100.0).toStringAsFixed(2);
+                _noteController.text = t.note;
+                
+                _openCategoryPickerExternal(t);
               },
               child: Padding(
                 padding: const EdgeInsets.all(8),
@@ -512,20 +620,22 @@ class _HistoryScreenState extends State<HistoryScreen> {
               ),
             ),
             Expanded(
-              child: GestureDetector(
-                onTap: () => _startEditing(t),
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                  child: Text(t.note.isNotEmpty ? t.note : t.category, style: const TextStyle(fontSize: 15)),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: GestureDetector(
+                  onTap: () => _startEditingNote(t),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Text(
+                      t.note.isNotEmpty ? t.note : t.category,
+                      style: const TextStyle(fontSize: 15),
+                    ),
+                  ),
                 ),
               ),
             ),
             GestureDetector(
-              onTap: () async {
-                _startEditing(t);
-                await Future.delayed(const Duration(milliseconds: 80));
-                _openAmountSheet();
-              },
+              onTap: () => _startEditingAmount(t),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 14),
                 child: Text(
@@ -540,5 +650,31 @@ class _HistoryScreenState extends State<HistoryScreen> {
       ),
     );
   }
+  // 外部调用的分类选择，不进入 inline 编辑模式
+  Future<void> _openCategoryPickerExternal(TransactionModel t) async {
+    final result = await Navigator.push<Category>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => CategoryPickerScreen(
+          selectedCategory: t.category,
+          initialType: t.type,
+        ),
+      ),
+    );
 
+    if (result != null && mounted) {
+      final updated = TransactionModel(
+        id: t.id,
+        amount: t.amount,
+        type: result.type,
+        category: result.name,
+        date: t.date,
+        note: t.note,
+      );
+      await DBHelper().updateTransaction(updated);
+      Future.delayed(const Duration(milliseconds: 200), () {
+        if (mounted) _refreshData();
+      });
+    }
+  }
 }
