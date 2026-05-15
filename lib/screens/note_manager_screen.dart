@@ -105,12 +105,15 @@ class _NoteManagerScreenState extends State<NoteManagerScreen> {
                         final t = templates[index];
                         return ListTile(
                           key: ValueKey(t.id),
+                          contentPadding: const EdgeInsets.symmetric(horizontal: 16), // 左右对齐屏边缘距离一致
                           title: Text(t.note),
                           trailing: Row(
                             mainAxisSize: MainAxisSize.min,
                             children: [
                               IconButton(
-                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                                padding: EdgeInsets.zero,
+                                constraints: const BoxConstraints(),
                                 onPressed: () async {
                                   final confirmed = await showDialog<bool>(
                                     context: context,
@@ -135,13 +138,11 @@ class _NoteManagerScreenState extends State<NoteManagerScreen> {
                                   }
                                 },
                               ),
-                              // 拖拽手柄放在最右侧
+                              const SizedBox(width: 12),
+                              // 拖拽手柄放在最右侧，去掉多余 padding 确保与左边距对齐感一致
                               ReorderableDragStartListener(
                                 index: index,
-                                child: const Padding(
-                                  padding: EdgeInsets.symmetric(horizontal: 8),
-                                  child: Icon(Icons.drag_handle, color: Colors.grey),
-                                ),
+                                child: const Icon(Icons.drag_handle, color: Colors.grey),
                               ),
                             ],
                           ),
