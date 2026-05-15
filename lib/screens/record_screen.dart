@@ -8,9 +8,17 @@ import '../models/note_template.dart';
 
 class RecordScreen extends StatefulWidget {
   final VoidCallback onSaved;
-  final TransactionModel? transaction; // 新增：用于编辑现有记录
+  final TransactionModel? transaction; // 编辑现有记录
+  final String? initialCategory;       // 新建时预填类别
+  final int? initialType;              // 新建时预填类型（0=支出 1=收入）
 
-  const RecordScreen({super.key, required this.onSaved, this.transaction});
+  const RecordScreen({
+    super.key,
+    required this.onSaved,
+    this.transaction,
+    this.initialCategory,
+    this.initialType,
+  });
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -29,15 +37,18 @@ class _RecordScreenState extends State<RecordScreen> {
   void initState() {
     super.initState();
     if (widget.transaction != null) {
-      // 编辑模式：初始化数据
+      // 编辑模式：从现有记录初始化
       _type = widget.transaction!.type;
       _selectedCategory = widget.transaction!.category;
       _selectedDate = DateTime.parse(widget.transaction!.date);
       _amountController.text = (widget.transaction!.amount / 100.0).toStringAsFixed(2);
       _noteController.text = widget.transaction!.note;
+    } else if (widget.initialCategory != null) {
+      // 新建模式：从分类选择器预填
+      _type = widget.initialType ?? 0;
+      _selectedCategory = widget.initialCategory;
     }
     _loadCategories();
-    // 监听全局分类更新通知
     DBHelper.categoryUpdateNotifier.addListener(_loadCategories);
   }
 

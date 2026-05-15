@@ -308,14 +308,33 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  void _showRecordSheet() {
+  Future<void> _showRecordSheet() async {
+    // 第一步：先选类别
+    final selectedCategory = await Navigator.push<Category>(
+      context,
+      MaterialPageRoute(
+        builder: (_) => const CategoryPickerScreen(
+          selectedCategory: null,
+          initialType: 0,
+        ),
+      ),
+    );
+
+    // 用户取消选择则直接返回
+    if (selectedCategory == null || !mounted) return;
+
+    // 第二步：打开记一笔弹窗，预填好类别
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       enableDrag: false,
       backgroundColor: Theme.of(context).colorScheme.surface,
       shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => RecordScreen(onSaved: _refreshData),
+      builder: (context) => RecordScreen(
+        onSaved: _refreshData,
+        initialCategory: selectedCategory.name,
+        initialType: selectedCategory.type,
+      ),
     );
   }
 
