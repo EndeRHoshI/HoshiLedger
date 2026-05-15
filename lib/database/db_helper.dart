@@ -25,7 +25,7 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'hoshi_ledger.db');
     return await openDatabase(
       path,
-      version: 3, // 升级版本，新增备注排序功能
+      version: 4, // 升级版本，扩充默认分类
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -67,16 +67,40 @@ class DBHelper {
 
     // 预置默认分类
     final List<Map<String, dynamic>> defaultCategories = [
+      // 支出 (type: 0)
       {'name': '餐饮', 'type': 0, 'icon': 'restaurant'},
-      {'name': '交通', 'type': 0, 'icon': 'directions_bus'},
       {'name': '购物', 'type': 0, 'icon': 'shopping_cart'},
-      {'name': '娱乐', 'type': 0, 'icon': 'movie'},
-      {'name': '医疗', 'type': 0, 'icon': 'medical_services'},
+      {'name': '日用', 'type': 0, 'icon': 'inventory_2'},
+      {'name': '交通', 'type': 0, 'icon': 'directions_bus'},
+      {'name': '蔬菜', 'type': 0, 'icon': 'eco'},
+      {'name': '水果', 'type': 0, 'icon': 'local_dining'},
+      {'name': '零食', 'type': 0, 'icon': 'fastfood'},
+      {'name': '服饰', 'type': 0, 'icon': 'checkroom'},
+      {'name': '美容', 'type': 0, 'icon': 'face'},
       {'name': '居家', 'type': 0, 'icon': 'home'},
+      {'name': '教育', 'type': 0, 'icon': 'school'},
+      {'name': '医疗', 'type': 0, 'icon': 'medical_services'},
+      {'name': '旅行', 'type': 0, 'icon': 'flight'},
+      {'name': '娱乐', 'type': 0, 'icon': 'sports_esports'},
+      {'name': '运动', 'type': 0, 'icon': 'fitness_center'},
+      {'name': '社交', 'type': 0, 'icon': 'groups'},
+      {'name': '数码', 'type': 0, 'icon': 'devices'},
+      {'name': '汽车', 'type': 0, 'icon': 'directions_car'},
+      {'name': '办公', 'type': 0, 'icon': 'business_center'},
+      {'name': '维修', 'type': 0, 'icon': 'build'},
+      {'name': '宠物', 'type': 0, 'icon': 'pets'},
+      {'name': '水族', 'type': 0, 'icon': 'phishing'},
+      {'name': '礼物', 'type': 0, 'icon': 'redeem'},
+      {'name': '结婚', 'type': 0, 'icon': 'favorite'},
+      {'name': '礼金', 'type': 0, 'icon': 'volunteer_activism'},
+      {'name': '其它', 'type': 0, 'icon': 'more_horiz'},
+
+      // 收入 (type: 1)
       {'name': '工资', 'type': 1, 'icon': 'payments'},
-      {'name': '理财', 'type': 1, 'icon': 'trending_up'},
       {'name': '兼职', 'type': 1, 'icon': 'work'},
-      {'name': '礼金', 'type': 1, 'icon': 'redeem'},
+      {'name': '理财', 'type': 1, 'icon': 'trending_up'},
+      {'name': '奖金', 'type': 1, 'icon': 'emoji_events'},
+      {'name': '其它', 'type': 1, 'icon': 'more_horiz'},
     ];
 
     for (var cat in defaultCategories) {
@@ -99,6 +123,42 @@ class DBHelper {
     if (oldVersion < 3) {
       // 为备注模板增加排序字段
       await db.execute('ALTER TABLE note_templates ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
+    }
+    if (oldVersion < 4) {
+      // 扩充默认分类（针对已有用户，仅插入不存在的分类）
+      final List<Map<String, dynamic>> newDefaults = [
+        {'name': '日用', 'type': 0, 'icon': 'inventory_2'},
+        {'name': '蔬菜', 'type': 0, 'icon': 'eco'},
+        {'name': '水果', 'type': 0, 'icon': 'local_dining'},
+        {'name': '零食', 'type': 0, 'icon': 'fastfood'},
+        {'name': '服饰', 'type': 0, 'icon': 'checkroom'},
+        {'name': '美容', 'type': 0, 'icon': 'face'},
+        {'name': '教育', 'type': 0, 'icon': 'school'},
+        {'name': '旅行', 'type': 0, 'icon': 'flight'},
+        {'name': '运动', 'type': 0, 'icon': 'fitness_center'},
+        {'name': '社交', 'type': 0, 'icon': 'groups'},
+        {'name': '数码', 'type': 0, 'icon': 'devices'},
+        {'name': '汽车', 'type': 0, 'icon': 'directions_car'},
+        {'name': '办公', 'type': 0, 'icon': 'business_center'},
+        {'name': '维修', 'type': 0, 'icon': 'build'},
+        {'name': '宠物', 'type': 0, 'icon': 'pets'},
+        {'name': '水族', 'type': 0, 'icon': 'phishing'},
+        {'name': '礼物', 'type': 0, 'icon': 'redeem'},
+        {'name': '结婚', 'type': 0, 'icon': 'favorite'},
+        {'name': '奖金', 'type': 1, 'icon': 'emoji_events'},
+        {'name': '其它', 'type': 1, 'icon': 'more_horiz'},
+      ];
+
+      for (var cat in newDefaults) {
+        final List<Map<String, dynamic>> existing = await db.query(
+          'categories',
+          where: 'name = ? AND type = ?',
+          whereArgs: [cat['name'], cat['type']],
+        );
+        if (existing.isEmpty) {
+          await db.insert('categories', cat);
+        }
+      }
     }
   }
 
