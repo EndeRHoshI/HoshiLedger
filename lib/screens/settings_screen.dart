@@ -142,11 +142,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   context: context,
                   barrierDismissible: false,
                   builder: (ctx) => AlertDialog(
+                    contentPadding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
                     content: Column(
                       mainAxisSize: MainAxisSize.min,
                       children: [
                         const CircularProgressIndicator(),
-                        const SizedBox(height: 20),
+                        const SizedBox(height: 24),
                         const Text('正在迁移数据，请稍候...', style: TextStyle(fontSize: 15)),
                       ],
                     ),
@@ -233,9 +234,28 @@ class _SettingsScreenState extends State<SettingsScreen> {
       );
 
       if (result != null && result.files.single.path != null) {
+        if (!mounted) return;
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (ctx) => AlertDialog(
+            contentPadding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const CircularProgressIndicator(),
+                const SizedBox(height: 24),
+                const Text('正在导入数据，请稍候...', style: TextStyle(fontSize: 15)),
+              ],
+            ),
+          ),
+        );
+
         File file = File(result.files.single.path!);
         bool success = await DataManager.importData(file);
+        
         if (mounted) {
+          Navigator.pop(context); // 关闭 loading
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(content: Text(success ? '数据恢复成功' : '数据恢复失败，文件格式可能有误')),
           );
