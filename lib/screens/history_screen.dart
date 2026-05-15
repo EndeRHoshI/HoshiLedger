@@ -296,17 +296,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
-  void _showFullEditSheet(TransactionModel t) {
-    _cancelEditing();
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      enableDrag: false,
-      backgroundColor: Theme.of(context).colorScheme.surface,
-      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
-      builder: (context) => RecordScreen(transaction: t, onSaved: _refreshData),
-    );
-  }
 
   Future<void> _showRecordSheet() async {
     // 第一步：先选类别
@@ -655,7 +644,6 @@ class _HistoryScreenState extends State<HistoryScreen> {
           _performSave();
         }
       },
-      onLongPress: () => _showFullEditSheet(t),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
         child: Row(

@@ -3,19 +3,16 @@ import 'package:flutter/services.dart';
 import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
-import '../models/category.dart';
 import '../models/note_template.dart';
 
 class RecordScreen extends StatefulWidget {
   final VoidCallback onSaved;
-  final TransactionModel? transaction; // 编辑现有记录
   final String? initialCategory;       // 新建时预填类别
   final int? initialType;              // 新建时预填类型（0=支出 1=收入）
 
   const RecordScreen({
     super.key,
     required this.onSaved,
-    this.transaction,
     this.initialCategory,
     this.initialType,
   });
@@ -30,42 +27,25 @@ class _RecordScreenState extends State<RecordScreen> {
   int _type = 0;
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
-  List<Category> _categories = [];
   List<NoteTemplate> _noteTemplates = []; // 当前分类的历史备注
 
   @override
   void initState() {
     super.initState();
-    if (widget.transaction != null) {
-      // 编辑模式：从现有记录初始化
-      _type = widget.transaction!.type;
-      _selectedCategory = widget.transaction!.category;
-      _selectedDate = DateTime.parse(widget.transaction!.date);
-      _amountController.text = (widget.transaction!.amount / 100.0).toStringAsFixed(2);
-      _noteController.text = widget.transaction!.note;
-    } else if (widget.initialCategory != null) {
-      // 新建模式：从分类选择器预填
+    if (widget.initialCategory != null) {
       _type = widget.initialType ?? 0;
       _selectedCategory = widget.initialCategory;
     }
-    _loadCategories();
-    DBHelper.categoryUpdateNotifier.addListener(_loadCategories);
+    _loadNoteTemplates();
+    DBHelper.categoryUpdateNotifier.addListener(_loadNoteTemplates);
   }
 
-  Future<void> _loadCategories() async {
-    final categories = await DBHelper().getCategories(_type);
-    setState(() {
-      _categories = categories;
-      // 如果是新增模式且未选分类，选第一个
-      if (widget.transaction == null && _selectedCategory == null && _categories.isNotEmpty) {
-        _selectedCategory = _categories[0].name;
-      }
-      // 如果是编辑模式且分类不在列表中（被删了），手动补上
-      if (_selectedCategory != null && !_categories.any((c) => c.name == _selectedCategory)) {
-        _categories.insert(0, Category(name: _selectedCategory!, type: _type, icon: 'category'));
-      }
-    });
-    await _loadNoteTemplates();
+  @override
+  void dispose() {
+    DBHelper.categoryUpdateNotifier.removeListener(_loadNoteTemplates);
+    _amountController.dispose();
+    _noteController.dispose();
+    super.dispose();
   }
 
   /// 加载当前分类的历史备注模板
@@ -75,21 +55,6 @@ class _RecordScreenState extends State<RecordScreen> {
     setState(() => _noteTemplates = templates);
   }
 
-  /// 切换分类时，同步加载该分类的历史备注
-  void _selectCategory(String name) {
-    FocusScope.of(context).unfocus();
-    setState(() => _selectedCategory = name);
-    _loadNoteTemplates();
-  }
-
-  void _switchType(int type) {
-    if (_type == type) return;
-    setState(() {
-      _type = type;
-      _selectedCategory = null; // 切换类型时清空选中分类，让 _loadCategories 重新选第一个
-    });
-    _loadCategories();
-  }
 
   Future<void> _saveRecord() async {
     final amountText = _amountController.text;
@@ -113,7 +78,6 @@ class _RecordScreenState extends State<RecordScreen> {
     final String note = _noteController.text;
 
     final record = TransactionModel(
-      id: widget.transaction?.id, // 保留原 ID
       amount: amountCents,
       type: _type,
       category: category,
@@ -121,11 +85,7 @@ class _RecordScreenState extends State<RecordScreen> {
       note: note,
     );
 
-    if (widget.transaction == null) {
-      await DBHelper().insertTransaction(record);
-    } else {
-      await DBHelper().updateTransaction(record);
-    }
+    await DBHelper().insertTransaction(record);
 
     // 自动将非空备注保存为该分类的历史备注模板
     if (note.isNotEmpty) {
@@ -144,37 +104,7 @@ class _RecordScreenState extends State<RecordScreen> {
     if (mounted) Navigator.pop(context);
   }
 
-  Future<void> _deleteRecord() async {
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('确认删除'),
-        content: const Text('确定要删除这条记录吗？该操作无法撤销。'),
-        actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            style: TextButton.styleFrom(foregroundColor: Colors.red),
-            child: const Text('删除'),
-          ),
-        ],
-      ),
-    );
 
-    if (confirmed == true && mounted) {
-      await DBHelper().deleteTransaction(widget.transaction!.id!);
-      widget.onSaved();
-      if (mounted) Navigator.pop(context);
-    }
-  }
-
-  @override
-  void dispose() {
-    DBHelper.categoryUpdateNotifier.removeListener(_loadCategories);
-    _amountController.dispose();
-    _noteController.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -195,60 +125,15 @@ class _RecordScreenState extends State<RecordScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Text(widget.transaction == null ? '记一笔' : '编辑记录',
-                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-                  Row(
-                    children: [
-                      if (widget.transaction != null)
-                        IconButton(
-                          icon: const Icon(Icons.delete_outline, color: Colors.red),
-                          onPressed: _deleteRecord,
-                        ),
-                      IconButton(
-                        icon: const Icon(Icons.close),
-                        onPressed: () => Navigator.pop(context),
-                      ),
-                    ],
+                  const Text('记一笔',
+                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(context),
                   ),
                 ],
               ),
               const SizedBox(height: 16),
-              // 来自分类选择器时隐藏收支切换（已在上一步选定）
-              if (widget.initialCategory == null) ...[  
-                // 收支切换
-                Row(
-                  children: [
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Center(child: Text('支出')),
-                        selected: _type == 0,
-                        onSelected: (_) => _switchType(0),
-                        showCheckmark: false,
-                        selectedColor: Colors.red.withAlpha(51),
-                        labelStyle: TextStyle(
-                          color: _type == 0 ? Colors.red : null,
-                          fontWeight: _type == 0 ? FontWeight.bold : null,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(width: 16),
-                    Expanded(
-                      child: ChoiceChip(
-                        label: const Center(child: Text('收入')),
-                        selected: _type == 1,
-                        onSelected: (_) => _switchType(1),
-                        showCheckmark: false,
-                        selectedColor: Colors.green.withAlpha(51),
-                        labelStyle: TextStyle(
-                          color: _type == 1 ? Colors.green : null,
-                          fontWeight: _type == 1 ? FontWeight.bold : null,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 24),
-              ],
 
             // 金额输入
             TextField(
@@ -272,30 +157,6 @@ class _RecordScreenState extends State<RecordScreen> {
             ),
             const SizedBox(height: 24),
 
-              // 来自分类选择器时隐藏分类选择块
-              if (widget.initialCategory == null) ...[  
-                const Text('选择分类', style: TextStyle(fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                _categories.isEmpty
-                    ? const Center(child: Text('暂无分类'))
-                    : Wrap(
-                        spacing: 8,
-                        runSpacing: 8,
-                        children: _categories.map((cat) {
-                          final isSelected = _selectedCategory == cat.name;
-                          return ActionChip(
-                            avatar: Icon(Category.getIconData(cat.icon), size: 18),
-                            label: Text(cat.name),
-                            onPressed: () => _selectCategory(cat.name),
-                            backgroundColor: isSelected
-                                ? Theme.of(context).colorScheme.primaryContainer
-                                : null,
-                            side: isSelected ? BorderSide.none : null,
-                          );
-                        }).toList(),
-                      ),
-                const SizedBox(height: 24),
-              ],
 
             // 日期选择
             ListTile(
