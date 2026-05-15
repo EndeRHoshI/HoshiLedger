@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/note_template.dart';
 
-/// 备注模板管理页，按分类分组展示，支持删除
+/// 备注模板管理页，支持按分类分组展示、删除和拖拽排序
 class NoteManagerScreen extends StatefulWidget {
   const NoteManagerScreen({super.key});
 
@@ -37,12 +37,35 @@ class _NoteManagerScreenState extends State<NoteManagerScreen> {
     _loadTemplates();
   }
 
+  /// 处理拖拽排序后的更新
+  Future<void> _onReorder(String category, int oldIndex, int newIndex) async {
+    setState(() {
+      if (newIndex > oldIndex) newIndex -= 1;
+      final List<NoteTemplate> items = _grouped[category]!;
+      final item = items.removeAt(oldIndex);
+      items.insert(newIndex, item);
+    });
+    // 同步到数据库
+    await DBHelper().updateNoteTemplatesOrder(_grouped[category]!);
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
         title: const Text('备注管理'),
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+        actions: [
+          Padding(
+            padding: const EdgeInsets.only(right: 16),
+            child: Center(
+              child: Text(
+                '长按可拖动排序',
+                style: TextStyle(fontSize: 12, color: Theme.of(context).colorScheme.primary),
+              ),
+            ),
+          ),
+        ],
       ),
       body: _isEmpty
           ? const Center(
@@ -71,9 +94,17 @@ class _NoteManagerScreenState extends State<NoteManagerScreen> {
                         ),
                       ),
                     ),
-                    // 该分类下的备注列表
-                    ...templates.map((t) => ListTile(
-                          leading: const Icon(Icons.notes, size: 20, color: Colors.grey),
+                    // 该分类下的备注列表（支持拖拽排序）
+                    ReorderableListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: templates.length,
+                      onReorder: (oldIdx, newIdx) => _onReorder(category, oldIdx, newIdx),
+                      itemBuilder: (context, index) {
+                        final t = templates[index];
+                        return ListTile(
+                          key: ValueKey(t.id),
+                          leading: const Icon(Icons.drag_handle, size: 20, color: Colors.grey),
                           title: Text(t.note),
                           trailing: IconButton(
                             icon: const Icon(Icons.delete_outline, color: Colors.red),
@@ -101,7 +132,9 @@ class _NoteManagerScreenState extends State<NoteManagerScreen> {
                               }
                             },
                           ),
-                        )),
+                        );
+                      },
+                    ),
                     const Divider(height: 1),
                   ],
                 );

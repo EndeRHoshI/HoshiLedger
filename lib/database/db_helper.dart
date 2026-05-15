@@ -25,7 +25,7 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'hoshi_ledger.db');
     return await openDatabase(
       path,
-      version: 2, // 升级版本，新增备注模板表
+      version: 3, // 升级版本，新增备注排序功能
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -54,12 +54,13 @@ class DBHelper {
       )
     ''');
 
-    // 备注模板表（按分类存储历史备注，自动去重）
+    // 备注模板表（按分类存储历史备注，支持排序）
     await db.execute('''
       CREATE TABLE note_templates(
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         category TEXT NOT NULL,
         note TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0,
         UNIQUE(category, note)
       )
     ''');
@@ -94,6 +95,10 @@ class DBHelper {
           UNIQUE(category, note)
         )
       ''');
+    }
+    if (oldVersion < 3) {
+      // 为备注模板增加排序字段
+      await db.execute('ALTER TABLE note_templates ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0');
     }
   }
 
@@ -181,33 +186,67 @@ class DBHelper {
   Future<void> saveNoteTemplate(String category, String note) async {
     if (note.trim().isEmpty) return;
     final db = await database;
+    
+    // 检查是否已存在
+    final existing = await db.query(
+      'note_templates',
+      where: 'category = ? AND note = ?',
+      whereArgs: [category, note.trim()],
+    );
+    if (existing.isNotEmpty) return;
+
+    // 获取当前分类下最大的排序号，新备注默认排到最后面
+    final List<Map<String, dynamic>> res = await db.rawQuery(
+      'SELECT MAX(sort_order) as maxOrder FROM note_templates WHERE category = ?',
+      [category]
+    );
+    int nextOrder = (res.first['maxOrder'] as int? ?? -1) + 1;
+
     await db.insert(
       'note_templates',
-      {'category': category, 'note': note.trim()},
-      conflictAlgorithm: ConflictAlgorithm.ignore, // 重复则忽略
+      {
+        'category': category, 
+        'note': note.trim(),
+        'sort_order': nextOrder,
+      },
     );
   }
 
-  /// 获取某分类下的所有备注模板（最新在前）
+  /// 获取某分类下的所有备注模板（按排序号升序，相同序号按 ID 降序）
   Future<List<NoteTemplate>> getNoteTemplates(String category) async {
     final db = await database;
     final maps = await db.query(
       'note_templates',
       where: 'category = ?',
       whereArgs: [category],
-      orderBy: 'id DESC',
+      orderBy: 'sort_order ASC, id DESC',
     );
     return maps.map((m) => NoteTemplate.fromMap(m)).toList();
   }
 
-  /// 获取全部备注模板（按分类排序，用于管理页）
+  /// 获取全部备注模板
   Future<List<NoteTemplate>> getAllNoteTemplates() async {
     final db = await database;
     final maps = await db.query(
       'note_templates',
-      orderBy: 'category ASC, id DESC',
+      orderBy: 'category ASC, sort_order ASC, id DESC',
     );
     return maps.map((m) => NoteTemplate.fromMap(m)).toList();
+  }
+
+  /// 批量更新备注模板排序
+  Future<void> updateNoteTemplatesOrder(List<NoteTemplate> templates) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      for (int i = 0; i < templates.length; i++) {
+        await txn.update(
+          'note_templates',
+          {'sort_order': i},
+          where: 'id = ?',
+          whereArgs: [templates[i].id],
+        );
+      }
+    });
   }
 
   /// 删除单条备注模板
