@@ -299,6 +299,7 @@ class _CategoryManagerState extends State<CategoryManager> {
         itemBuilder: (context, index) {
           final cat = _categories[index];
           return ListTile(
+            contentPadding: const EdgeInsets.symmetric(horizontal: 16),
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.primaryContainer.withAlpha(51),
               child: Icon(Category.getIconData(cat.icon), color: Theme.of(context).colorScheme.primary),
@@ -308,11 +309,16 @@ class _CategoryManagerState extends State<CategoryManager> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
-                  icon: const Icon(Icons.edit_outlined),
+                  icon: const Icon(Icons.edit_outlined, size: 22),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onPressed: () => _editCategory(cat),
                 ),
+                const SizedBox(width: 12),
                 IconButton(
-                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
+                  padding: EdgeInsets.zero,
+                  constraints: const BoxConstraints(),
                   onPressed: () async {
                     if (_categories.length <= 1) {
                       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('至少保留一个分类')));
