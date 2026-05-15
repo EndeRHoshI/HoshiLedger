@@ -6,6 +6,7 @@ import '../utils/data_manager.dart';
 import '../utils/shark_migration.dart';
 import '../services/theme_service.dart';
 import '../models/category.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'note_manager_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -16,6 +17,20 @@ class SettingsScreen extends StatefulWidget {
 }
 
 class _SettingsScreenState extends State<SettingsScreen> {
+  String _version = '1.0.0';
+
+  @override
+  void initState() {
+    super.initState();
+    _initPackageInfo();
+  }
+
+  Future<void> _initPackageInfo() async {
+    final info = await PackageInfo.fromPlatform();
+    if (mounted) {
+      setState(() => _version = info.version);
+    }
+  }
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -98,7 +113,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('HoshiLedger'),
-            subtitle: const Text('版本 1.0.0 · 极简离线记账'),
+            subtitle: Text('版本 $_version · 极简离线记账'),
           ),
           const Divider(),
           ListTile(
