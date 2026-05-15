@@ -141,7 +141,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 showDialog(
                   context: context,
                   barrierDismissible: false,
-                  builder: (ctx) => const AlertDialog(content: Text('正在迁移中，请稍候...')),
+                  builder: (ctx) => AlertDialog(
+                    content: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const CircularProgressIndicator(),
+                        const SizedBox(height: 20),
+                        const Text('正在迁移数据，请稍候...', style: TextStyle(fontSize: 15)),
+                      ],
+                    ),
+                  ),
                 );
                 int count = await SharkMigration.runMigration();
                 if (mounted) {
