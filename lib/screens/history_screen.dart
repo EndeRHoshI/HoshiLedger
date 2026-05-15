@@ -35,6 +35,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   bool _isSaving = false;
   // 编辑模式：'note' | 'amount' | null
   String? _editMode;
+  Offset? _tapPosition;
 
   @override
   void initState() {
@@ -642,6 +643,57 @@ class _HistoryScreenState extends State<HistoryScreen> {
       onTap: () {
         if (_editingTransaction != null) {
           _performSave();
+        }
+      },
+      onTapDown: (details) => _tapPosition = details.globalPosition,
+      onLongPress: () async {
+        if (_tapPosition == null) return;
+        
+        // 计算弹出菜单的位置
+        final RenderBox overlay = Overlay.of(context).context.findRenderObject() as RenderBox;
+        final RelativeRect position = RelativeRect.fromRect(
+          Rect.fromPoints(_tapPosition!, _tapPosition!),
+          Offset.zero & overlay.size,
+        );
+
+        final result = await showMenu<String>(
+          context: context,
+          position: position,
+          items: [
+            const PopupMenuItem<String>(
+              value: 'delete',
+              child: Row(
+                children: [
+                  Icon(Icons.delete_outline, color: Colors.red, size: 20),
+                  SizedBox(width: 8),
+                  Text('删除记录', style: TextStyle(color: Colors.red)),
+                ],
+              ),
+            ),
+          ],
+        );
+
+        if (result == 'delete' && mounted) {
+          final confirmed = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('确认删除'),
+              content: const Text('确定要删除这笔记录吗？删除后无法恢复。'),
+              actions: [
+                TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+                TextButton(
+                  onPressed: () => Navigator.pop(ctx, true),
+                  style: TextButton.styleFrom(foregroundColor: Colors.red),
+                  child: const Text('确定删除'),
+                ),
+              ],
+            ),
+          );
+
+          if (confirmed == true && mounted) {
+            await DBHelper().deleteTransaction(t.id!);
+            _refreshData();
+          }
         }
       },
       child: Padding(
