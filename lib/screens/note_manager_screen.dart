@@ -98,39 +98,52 @@ class _NoteManagerScreenState extends State<NoteManagerScreen> {
                     ReorderableListView.builder(
                       shrinkWrap: true,
                       physics: const NeverScrollableScrollPhysics(),
+                      buildDefaultDragHandles: false, // 禁用默认拖拽手柄
                       itemCount: templates.length,
                       onReorder: (oldIdx, newIdx) => _onReorder(category, oldIdx, newIdx),
                       itemBuilder: (context, index) {
                         final t = templates[index];
                         return ListTile(
                           key: ValueKey(t.id),
-                          leading: const Icon(Icons.drag_handle, size: 20, color: Colors.grey),
                           title: Text(t.note),
-                          trailing: IconButton(
-                            icon: const Icon(Icons.delete_outline, color: Colors.red),
-                            onPressed: () async {
-                              final confirmed = await showDialog<bool>(
-                                context: context,
-                                builder: (ctx) => AlertDialog(
-                                  title: const Text('删除备注'),
-                                  content: Text('确定要删除备注「${t.note}」吗？'),
-                                  actions: [
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx, false),
-                                      child: const Text('取消'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              IconButton(
+                                icon: const Icon(Icons.delete_outline, color: Colors.red),
+                                onPressed: () async {
+                                  final confirmed = await showDialog<bool>(
+                                    context: context,
+                                    builder: (ctx) => AlertDialog(
+                                      title: const Text('删除备注'),
+                                      content: Text('确定要删除备注「${t.note}」吗？'),
+                                      actions: [
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx, false),
+                                          child: const Text('取消'),
+                                        ),
+                                        TextButton(
+                                          onPressed: () => Navigator.pop(ctx, true),
+                                          style: TextButton.styleFrom(foregroundColor: Colors.red),
+                                          child: const Text('删除'),
+                                        ),
+                                      ],
                                     ),
-                                    TextButton(
-                                      onPressed: () => Navigator.pop(ctx, true),
-                                      style: TextButton.styleFrom(foregroundColor: Colors.red),
-                                      child: const Text('删除'),
-                                    ),
-                                  ],
+                                  );
+                                  if (confirmed == true) {
+                                    await _delete(t);
+                                  }
+                                },
+                              ),
+                              // 拖拽手柄放在最右侧
+                              ReorderableDragStartListener(
+                                index: index,
+                                child: const Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: 8),
+                                  child: Icon(Icons.drag_handle, color: Colors.grey),
                                 ),
-                              );
-                              if (confirmed == true) {
-                                await _delete(t);
-                              }
-                            },
+                              ),
+                            ],
                           ),
                         );
                       },
