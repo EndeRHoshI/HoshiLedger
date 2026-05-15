@@ -104,16 +104,36 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(
             leading: const Icon(Icons.warning, color: Colors.amber),
             title: const Text('【临时】迁移鲨鱼记账数据'),
-            subtitle: const Text('一键导入 assets 中的 CSV 数据（用完即可删掉）'),
+            subtitle: const Text('一键导入 assets 中的 CSV 数据（重复点击会导致数据重复）'),
             onTap: () async {
-              showDialog(
+              final confirmed = await showDialog<bool>(
                 context: context,
-                barrierDismissible: false,
-                builder: (ctx) => const AlertDialog(content: Text('正在迁移中，请稍候...')),
+                builder: (ctx) => AlertDialog(
+                  title: const Text('数据迁移确认'),
+                  content: const Text('重复导入会导致账单数据重复。请确保你尚未导入过这些文件，是否继续？'),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
+                    TextButton(
+                      onPressed: () => Navigator.pop(ctx, true),
+                      child: const Text('确定迁移'),
+                    ),
+                  ],
+                ),
               );
-              int count = await SharkMigration.runMigration();
-              Navigator.pop(context);
-              ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入了 $count 条记录！')));
+
+              if (confirmed == true) {
+                if (!mounted) return;
+                showDialog(
+                  context: context,
+                  barrierDismissible: false,
+                  builder: (ctx) => const AlertDialog(content: Text('正在迁移中，请稍候...')),
+                );
+                int count = await SharkMigration.runMigration();
+                if (mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入了 $count 条记录！')));
+                }
+              }
             },
           ),
         ],
