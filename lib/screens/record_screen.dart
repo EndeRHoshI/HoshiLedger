@@ -213,39 +213,42 @@ class _RecordScreenState extends State<RecordScreen> {
                 ],
               ),
               const SizedBox(height: 16),
-            // 收支切换
-            Row(
-              children: [
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Center(child: Text('支出')),
-                    selected: _type == 0,
-                    onSelected: (_) => _switchType(0),
-                    showCheckmark: false,
-                    selectedColor: Colors.red.withAlpha(51),
-                    labelStyle: TextStyle(
-                      color: _type == 0 ? Colors.red : null,
-                      fontWeight: _type == 0 ? FontWeight.bold : null,
+              // 来自分类选择器时隐藏收支切换（已在上一步选定）
+              if (widget.initialCategory == null) ...[  
+                // 收支切换
+                Row(
+                  children: [
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Center(child: Text('支出')),
+                        selected: _type == 0,
+                        onSelected: (_) => _switchType(0),
+                        showCheckmark: false,
+                        selectedColor: Colors.red.withAlpha(51),
+                        labelStyle: TextStyle(
+                          color: _type == 0 ? Colors.red : null,
+                          fontWeight: _type == 0 ? FontWeight.bold : null,
+                        ),
+                      ),
                     ),
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: ChoiceChip(
-                    label: const Center(child: Text('收入')),
-                    selected: _type == 1,
-                    onSelected: (_) => _switchType(1),
-                    showCheckmark: false,
-                    selectedColor: Colors.green.withAlpha(51),
-                    labelStyle: TextStyle(
-                      color: _type == 1 ? Colors.green : null,
-                      fontWeight: _type == 1 ? FontWeight.bold : null,
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: ChoiceChip(
+                        label: const Center(child: Text('收入')),
+                        selected: _type == 1,
+                        onSelected: (_) => _switchType(1),
+                        showCheckmark: false,
+                        selectedColor: Colors.green.withAlpha(51),
+                        labelStyle: TextStyle(
+                          color: _type == 1 ? Colors.green : null,
+                          fontWeight: _type == 1 ? FontWeight.bold : null,
+                        ),
+                      ),
                     ),
-                  ),
+                  ],
                 ),
+                const SizedBox(height: 24),
               ],
-            ),
-            const SizedBox(height: 24),
 
             // 金额输入
             TextField(
@@ -269,28 +272,30 @@ class _RecordScreenState extends State<RecordScreen> {
             ),
             const SizedBox(height: 24),
 
-            // 分类选择
-            const Text('选择分类', style: TextStyle(fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            _categories.isEmpty
-                ? const Center(child: Text('暂无分类'))
-                : Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: _categories.map((cat) {
-                      final isSelected = _selectedCategory == cat.name;
-                      return ActionChip(
-                        avatar: Icon(Category.getIconData(cat.icon), size: 18),
-                        label: Text(cat.name),
-                        onPressed: () => _selectCategory(cat.name),
-                        backgroundColor: isSelected
-                            ? Theme.of(context).colorScheme.primaryContainer
-                            : null,
-                        side: isSelected ? BorderSide.none : null,
-                      );
-                    }).toList(),
-                  ),
-            const SizedBox(height: 24),
+              // 来自分类选择器时隐藏分类选择块
+              if (widget.initialCategory == null) ...[  
+                const Text('选择分类', style: TextStyle(fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                _categories.isEmpty
+                    ? const Center(child: Text('暂无分类'))
+                    : Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: _categories.map((cat) {
+                          final isSelected = _selectedCategory == cat.name;
+                          return ActionChip(
+                            avatar: Icon(Category.getIconData(cat.icon), size: 18),
+                            label: Text(cat.name),
+                            onPressed: () => _selectCategory(cat.name),
+                            backgroundColor: isSelected
+                                ? Theme.of(context).colorScheme.primaryContainer
+                                : null,
+                            side: isSelected ? BorderSide.none : null,
+                          );
+                        }).toList(),
+                      ),
+                const SizedBox(height: 24),
+              ],
 
             // 日期选择
             ListTile(
