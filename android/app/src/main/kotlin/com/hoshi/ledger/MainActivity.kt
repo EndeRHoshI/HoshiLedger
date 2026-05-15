@@ -1,4 +1,4 @@
-package com.example.hoshi_ledger
+package com.hoshi.ledger
 
 import io.flutter.embedding.android.FlutterActivity
 
