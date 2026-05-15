@@ -25,7 +25,7 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'hoshi_ledger.db');
     return await openDatabase(
       path,
-      version: 4, // 升级版本，扩充默认分类
+      version: 5, // 进一步完善默认分类
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -78,12 +78,15 @@ class DBHelper {
       {'name': '服饰', 'type': 0, 'icon': 'checkroom'},
       {'name': '美容', 'type': 0, 'icon': 'face'},
       {'name': '居家', 'type': 0, 'icon': 'home'},
+      {'name': '住房', 'type': 0, 'icon': 'chair'},
       {'name': '教育', 'type': 0, 'icon': 'school'},
+      {'name': '学习', 'type': 0, 'icon': 'menu_book'},
       {'name': '医疗', 'type': 0, 'icon': 'medical_services'},
       {'name': '旅行', 'type': 0, 'icon': 'flight'},
       {'name': '娱乐', 'type': 0, 'icon': 'sports_esports'},
       {'name': '运动', 'type': 0, 'icon': 'fitness_center'},
       {'name': '社交', 'type': 0, 'icon': 'groups'},
+      {'name': '通讯', 'type': 0, 'icon': 'smartphone'},
       {'name': '数码', 'type': 0, 'icon': 'devices'},
       {'name': '汽车', 'type': 0, 'icon': 'directions_car'},
       {'name': '办公', 'type': 0, 'icon': 'business_center'},
@@ -91,8 +94,12 @@ class DBHelper {
       {'name': '宠物', 'type': 0, 'icon': 'pets'},
       {'name': '水族', 'type': 0, 'icon': 'phishing'},
       {'name': '礼物', 'type': 0, 'icon': 'redeem'},
+      {'name': '亲友', 'type': 0, 'icon': 'people'},
+      {'name': '长辈', 'type': 0, 'icon': 'elderly'},
       {'name': '结婚', 'type': 0, 'icon': 'favorite'},
       {'name': '礼金', 'type': 0, 'icon': 'volunteer_activism'},
+      {'name': '罚款', 'type': 0, 'icon': 'gavel'},
+      {'name': '书籍', 'type': 0, 'icon': 'menu_book'},
       {'name': '其它', 'type': 0, 'icon': 'more_horiz'},
 
       // 收入 (type: 1)
@@ -100,6 +107,7 @@ class DBHelper {
       {'name': '兼职', 'type': 1, 'icon': 'work'},
       {'name': '理财', 'type': 1, 'icon': 'trending_up'},
       {'name': '奖金', 'type': 1, 'icon': 'emoji_events'},
+      {'name': '礼金', 'type': 1, 'icon': 'volunteer_activism'},
       {'name': '其它', 'type': 1, 'icon': 'more_horiz'},
     ];
 
@@ -150,6 +158,30 @@ class DBHelper {
       ];
 
       for (var cat in newDefaults) {
+        final List<Map<String, dynamic>> existing = await db.query(
+          'categories',
+          where: 'name = ? AND type = ?',
+          whereArgs: [cat['name'], cat['type']],
+        );
+        if (existing.isEmpty) {
+          await db.insert('categories', cat);
+        }
+      }
+    }
+    if (oldVersion < 5) {
+      // 进一步补全 CSV 中发现的分类
+      final List<Map<String, dynamic>> moreDefaults = [
+        {'name': '住房', 'type': 0, 'icon': 'chair'},
+        {'name': '学习', 'type': 0, 'icon': 'menu_book'},
+        {'name': '通讯', 'type': 0, 'icon': 'smartphone'},
+        {'name': '亲友', 'type': 0, 'icon': 'people'},
+        {'name': '长辈', 'type': 0, 'icon': 'elderly'},
+        {'name': '罚款', 'type': 0, 'icon': 'gavel'},
+        {'name': '书籍', 'type': 0, 'icon': 'menu_book'},
+        {'name': '礼金', 'type': 1, 'icon': 'volunteer_activism'},
+      ];
+
+      for (var cat in moreDefaults) {
         final List<Map<String, dynamic>> existing = await db.query(
           'categories',
           where: 'name = ? AND type = ?',
