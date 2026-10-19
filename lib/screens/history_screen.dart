@@ -347,11 +347,8 @@ class _HistoryScreenState extends State<HistoryScreen> {
       setState(() => _displayMonth = result.date);
       await _refreshData();
       if (!mounted) return;
-      final colors = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('已记录 ${result.count} 笔', style: TextStyle(color: colors.onSurface)),
-        backgroundColor: colors.surfaceContainerHigh,
-        behavior: SnackBarBehavior.floating,
+        content: Text('已记录 ${result.count} 笔'),
         duration: const Duration(seconds: 2),
       ));
     } finally {
