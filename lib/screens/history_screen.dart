@@ -339,7 +339,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
         context: context,
         isScrollControlled: true,
         enableDrag: false,
-        isDismissible: false,
+        isDismissible: true,
         showDragHandle: true,
         builder: (_) => TemplatePickerSheet(initialDate: _displayMonth),
       );
