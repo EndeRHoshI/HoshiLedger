@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction_template.dart';
+import '../widgets/transaction_template_tile.dart';
 import 'template_manager_screen.dart';
 
 class TemplatePickerSheet extends StatefulWidget {
@@ -169,24 +170,18 @@ class _TemplatePickerSheetState extends State<TemplatePickerSheet> {
                           ],
                         ),
                       )
-                    : ListView.separated(
+                    : ListView.builder(
                         itemCount: _templates.length,
-                        separatorBuilder: (_, _) => const Divider(height: 1),
                         itemBuilder: (context, index) {
                           final template = _templates[index];
-                          return ListTile(
-                            leading: const Icon(Icons.library_books_outlined),
-                            title: Text(
-                              template.name,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
+                          return TransactionTemplateTile(
+                            template: template,
+                            trailing: IconButton(
+                              tooltip: '应用模板',
+                              icon: const Icon(Icons.playlist_add_check),
+                              onPressed: _busy ? null : () => _apply(template),
                             ),
-                            subtitle: Text(
-                              '${template.entries.length} 笔 · 支出 ￥${(template.totalExpense / 100).toStringAsFixed(2)} · 收入 ￥${(template.totalIncome / 100).toStringAsFixed(2)}',
-                            ),
-                            trailing: const Icon(Icons.playlist_add_check),
-                            enabled: !_busy,
-                            onTap: () => _apply(template),
+                            onTap: _busy ? null : () => _apply(template),
                           );
                         },
                       ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/transaction_template.dart';
+import '../widgets/transaction_template_tile.dart';
 import 'template_editor_screen.dart';
 
 class TemplateManagerScreen extends StatefulWidget {
@@ -132,17 +133,9 @@ class _TemplateManagerScreenState extends State<TemplateManagerScreen> {
               onReorder: _reorder,
               itemBuilder: (context, index) {
                 final template = _templates[index];
-                return ListTile(
+                return TransactionTemplateTile(
                   key: ValueKey(template.id),
-                  leading: const Icon(Icons.library_books_outlined),
-                  title: Text(
-                    template.name,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  subtitle: Text(
-                    '${template.entries.length} 笔 · 支出 ￥${(template.totalExpense / 100).toStringAsFixed(2)} · 收入 ￥${(template.totalIncome / 100).toStringAsFixed(2)}',
-                  ),
+                  template: template,
                   onTap: _busy ? null : () => _edit(template),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,

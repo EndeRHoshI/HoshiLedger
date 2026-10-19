@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../database/db_helper.dart';
 import '../models/category.dart';
 import '../models/transaction_template.dart';
+import '../widgets/transaction_template_tile.dart';
 import 'category_picker_screen.dart';
 import 'record_screen.dart';
 
@@ -180,29 +181,56 @@ class _TemplateEditorScreenState extends State<TemplateEditorScreen> {
         body: Column(
           children: [
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 20),
               child: TextField(
                 controller: _nameController,
                 enabled: !_saving,
                 maxLength: 40,
-                decoration: const InputDecoration(
+                textInputAction: TextInputAction.done,
+                onSubmitted: (_) => FocusScope.of(context).unfocus(),
+                decoration: InputDecoration(
                   labelText: '模板名称',
+                  hintText: '例如：发薪日',
+                  floatingLabelBehavior: FloatingLabelBehavior.always,
+                  prefixIcon: const Icon(Icons.drive_file_rename_outline),
+                  filled: true,
+                  fillColor: Theme.of(context).colorScheme.surfaceContainerLow,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 16,
+                  ),
                   counterText: '',
                 ),
                 onChanged: (_) => setState(() => _dirty = true),
               ),
             ),
             Padding(
-              padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
-              child: Align(
-                alignment: Alignment.centerLeft,
-                child: Text(
-                  '${_entries.length} 笔  ·  支出 ￥${(expense / 100).toStringAsFixed(2)}  ·  收入 ￥${(income / 100).toStringAsFixed(2)}',
-                  style: Theme.of(context).textTheme.bodySmall,
-                ),
-              ),
+              padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+              child: TemplateAmounts(expense: expense, income: income),
             ),
             const Divider(height: 1),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      '模板条目',
+                      style: Theme.of(context).textTheme.titleSmall,
+                    ),
+                  ),
+                  Text(
+                    '${_entries.length} 笔',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
+            ),
             Expanded(
               child: _entries.isEmpty
                   ? const Center(child: Text('暂无条目'))
