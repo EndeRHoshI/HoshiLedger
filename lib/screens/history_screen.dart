@@ -4,9 +4,11 @@ import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/note_template.dart';
+import '../models/transaction_template.dart';
 import 'package:flutter/scheduler.dart';
 import 'record_screen.dart';
 import 'category_picker_screen.dart';
+import 'template_picker_sheet.dart';
 
 class HistoryScreen extends StatefulWidget {
   final int refreshKey;
@@ -36,6 +38,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
   // 编辑模式：'note' | 'amount' | null
   String? _editMode;
   Offset? _tapPosition;
+  bool _choosingTemplate = false;
 
   @override
   void initState() {
@@ -328,6 +331,34 @@ class _HistoryScreenState extends State<HistoryScreen> {
     );
   }
 
+  Future<void> _showTemplatePicker() async {
+    if (_choosingTemplate) return;
+    setState(() => _choosingTemplate = true);
+    try {
+      final result = await showModalBottomSheet<TemplateApplicationResult>(
+        context: context,
+        isScrollControlled: true,
+        enableDrag: false,
+        isDismissible: false,
+        showDragHandle: true,
+        builder: (_) => TemplatePickerSheet(initialDate: _displayMonth),
+      );
+      if (result == null || !mounted) return;
+      setState(() => _displayMonth = result.date);
+      await _refreshData();
+      if (!mounted) return;
+      final colors = Theme.of(context).colorScheme;
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('已记录 ${result.count} 笔', style: TextStyle(color: colors.onSurface)),
+        backgroundColor: colors.surfaceContainerHigh,
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 2),
+      ));
+    } finally {
+      if (mounted) setState(() => _choosingTemplate = false);
+    }
+  }
+
   void _changeMonth(int delta) {
     _cancelEditing();
     setState(() => _displayMonth = DateTime(_displayMonth.year, _displayMonth.month + delta));
@@ -398,8 +429,14 @@ class _HistoryScreenState extends State<HistoryScreen> {
         actions: [
           if (isEditing)
             TextButton(onPressed: _cancelEditing, child: const Text('取消'))
-          else
-            IconButton(icon: const Icon(Icons.add_circle_outline), onPressed: _showRecordSheet),
+          else ...[
+            IconButton(
+              tooltip: '应用模板',
+              icon: const Icon(Icons.playlist_add_check),
+              onPressed: _choosingTemplate ? null : _showTemplatePicker,
+            ),
+            IconButton(tooltip: '记一笔', icon: const Icon(Icons.add_circle_outline), onPressed: _showRecordSheet),
+          ],
         ],
       ),
       body: Stack(

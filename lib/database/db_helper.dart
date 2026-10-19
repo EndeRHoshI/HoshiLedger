@@ -4,6 +4,7 @@ import 'package:path/path.dart';
 import '../models/transaction.dart';
 import '../models/category.dart';
 import '../models/note_template.dart';
+import '../models/transaction_template.dart';
 
 class DBHelper {
   static final DBHelper _instance = DBHelper._internal();
@@ -25,7 +26,8 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'hoshi_ledger.db');
     return await openDatabase(
       path,
-      version: 7, // 支持分类排序
+      version: 8, // 自定义组合记账模板
+      onConfigure: (db) async => db.execute('PRAGMA foreign_keys = ON'),
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -65,6 +67,8 @@ class DBHelper {
         UNIQUE(category, note)
       )
     ''');
+
+    await _createTemplateTables(db);
 
     // 预置默认分类
     final List<Map<String, dynamic>> defaultCategories = [
@@ -218,6 +222,139 @@ class DBHelper {
       // 以原 ID 顺序初始化，避免升级后打乱已有分类。
       await db.execute('UPDATE categories SET sort_order = id');
     }
+    if (oldVersion < 8) {
+      await _createTemplateTables(db);
+    }
+  }
+
+  Future<void> _createTemplateTables(Database db) async {
+    await db.execute('''
+      CREATE TABLE transaction_templates(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0
+      )
+    ''');
+    await db.execute('''
+      CREATE TABLE template_entries(
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        template_id INTEGER NOT NULL,
+        amount INTEGER NOT NULL CHECK(amount > 0),
+        type INTEGER NOT NULL CHECK(type IN (0, 1)),
+        category TEXT NOT NULL,
+        note TEXT NOT NULL DEFAULT '',
+        sort_order INTEGER NOT NULL,
+        FOREIGN KEY(template_id) REFERENCES transaction_templates(id) ON DELETE CASCADE
+      )
+    ''');
+  }
+
+  Future<List<TransactionTemplate>> getTransactionTemplates() async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final templates = await txn.query(
+        'transaction_templates',
+        orderBy: 'sort_order ASC, id ASC',
+      );
+      final rows = await txn.query(
+        'template_entries',
+        orderBy: 'sort_order ASC, id ASC',
+      );
+      final entries = <int, List<TemplateEntry>>{};
+      for (final row in rows) {
+        entries.putIfAbsent(row['template_id'] as int, () => [])
+            .add(TemplateEntry.fromMap(row));
+      }
+      return templates.map((row) => TransactionTemplate(
+        id: row['id'] as int,
+        name: row['name'] as String,
+        entries: entries[row['id']] ?? [],
+      )).toList();
+    });
+  }
+
+  Future<int> saveTransactionTemplate({
+    int? id,
+    required String name,
+    required List<TemplateEntry> entries,
+  }) async {
+    if (name.trim().isEmpty || entries.isEmpty || entries.any((entry) =>
+        entry.amount <= 0 || ![0, 1].contains(entry.type) || entry.category.isEmpty)) {
+      throw ArgumentError('模板需要名称和有效条目');
+    }
+    final db = await database;
+    return db.transaction((txn) async {
+      final int templateId;
+      if (id == null) {
+        final result = await txn.rawQuery(
+          'SELECT MAX(sort_order) AS max_order FROM transaction_templates',
+        );
+        templateId = await txn.insert('transaction_templates', {
+          'name': name.trim(),
+          'sort_order': (result.first['max_order'] as int? ?? -1) + 1,
+        });
+      } else {
+        final count = await txn.update(
+          'transaction_templates', {'name': name.trim()},
+          where: 'id = ?', whereArgs: [id],
+        );
+        if (count != 1) throw StateError('模板已不存在');
+        templateId = id;
+        await txn.delete('template_entries',
+          where: 'template_id = ?', whereArgs: [id]);
+      }
+      final batch = txn.batch();
+      for (int i = 0; i < entries.length; i++) {
+        batch.insert('template_entries', {
+          ...entries[i].toMap(),
+          'template_id': templateId,
+          'sort_order': i,
+        });
+      }
+      await batch.commit(noResult: true);
+      return templateId;
+    });
+  }
+
+  Future<void> deleteTransactionTemplate(int id) async {
+    final db = await database;
+    await db.delete('transaction_templates', where: 'id = ?', whereArgs: [id]);
+  }
+
+  Future<void> updateTransactionTemplatesOrder(List<TransactionTemplate> templates) async {
+    final db = await database;
+    await db.transaction((txn) async {
+      final batch = txn.batch();
+      for (int i = 0; i < templates.length; i++) {
+        batch.update('transaction_templates', {'sort_order': i},
+          where: 'id = ?', whereArgs: [templates[i].id]);
+      }
+      await batch.commit(noResult: true);
+    });
+  }
+
+  Future<int> applyTransactionTemplate(int id, String date) async {
+    final db = await database;
+    return db.transaction((txn) async {
+      final templates = await txn.query('transaction_templates',
+        where: 'id = ?', whereArgs: [id]);
+      if (templates.isEmpty) throw StateError('模板已不存在');
+      final rows = await txn.query('template_entries',
+        where: 'template_id = ?', whereArgs: [id], orderBy: 'sort_order ASC, id ASC');
+      if (rows.isEmpty) throw StateError('模板没有条目');
+      // 整批校验和写入共用一个事务，避免只记入部分条目。
+      for (final row in rows.reversed) {
+        final entry = TemplateEntry.fromMap(row);
+        final categories = await txn.query('categories',
+          where: 'name = ? AND type = ?', whereArgs: [entry.category, entry.type]);
+        if (categories.isEmpty) {
+          throw StateError('分类「${entry.category}」已删除或改名，请先编辑模板');
+        }
+        await txn.insert('transactions', {...entry.toMap(), 'date': date});
+        await _saveNoteTemplate(txn, entry.category, entry.note);
+      }
+      return rows.length;
+    });
   }
 
   // --- 分类 CRUD ---
@@ -333,8 +470,12 @@ class DBHelper {
 
   /// 保存一条备注模板，相同分类+备注组合自动去重
   Future<void> saveNoteTemplate(String category, String note) async {
-    if (note.trim().isEmpty) return;
     final db = await database;
+    await _saveNoteTemplate(db, category, note);
+  }
+
+  Future<void> _saveNoteTemplate(DatabaseExecutor db, String category, String note) async {
+    if (note.trim().isEmpty) return;
     
     // 检查是否已存在
     final existing = await db.query(

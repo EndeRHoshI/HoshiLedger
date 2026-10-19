@@ -4,18 +4,25 @@ import 'package:intl/intl.dart';
 import '../database/db_helper.dart';
 import '../models/transaction.dart';
 import '../models/note_template.dart';
+import '../models/category.dart';
+import '../models/transaction_template.dart';
+import 'category_picker_screen.dart';
 
 class RecordScreen extends StatefulWidget {
-  final VoidCallback onSaved;
+  final VoidCallback? onSaved;
+  final ValueChanged<TemplateEntry>? onEntrySaved;
+  final TemplateEntry? initialEntry;
   final String? initialCategory;       // 新建时预填类别
   final int? initialType;              // 新建时预填类型（0=支出 1=收入）
 
   const RecordScreen({
     super.key,
-    required this.onSaved,
+    this.onSaved,
+    this.onEntrySaved,
+    this.initialEntry,
     this.initialCategory,
     this.initialType,
-  });
+  }) : assert((onSaved == null) != (onEntrySaved == null));
 
   @override
   State<RecordScreen> createState() => _RecordScreenState();
@@ -28,6 +35,7 @@ class _RecordScreenState extends State<RecordScreen> {
   String? _selectedCategory;
   DateTime _selectedDate = DateTime.now();
   List<NoteTemplate> _noteTemplates = []; // 当前分类的历史备注
+  bool get _isTemplateEntry => widget.onEntrySaved != null;
 
   @override
   void initState() {
@@ -35,6 +43,13 @@ class _RecordScreenState extends State<RecordScreen> {
     if (widget.initialCategory != null) {
       _type = widget.initialType ?? 0;
       _selectedCategory = widget.initialCategory;
+    }
+    final entry = widget.initialEntry;
+    if (entry != null) {
+      _type = entry.type;
+      _selectedCategory = entry.category;
+      _amountController.text = (entry.amount / 100).toStringAsFixed(2);
+      _noteController.text = entry.note;
     }
     _loadNoteTemplates();
     DBHelper.categoryUpdateNotifier.addListener(_loadNoteTemplates);
@@ -52,9 +67,24 @@ class _RecordScreenState extends State<RecordScreen> {
   Future<void> _loadNoteTemplates() async {
     if (_selectedCategory == null) return;
     final templates = await DBHelper().getNoteTemplates(_selectedCategory!);
+    if (!mounted) return;
     setState(() => _noteTemplates = templates);
   }
 
+  Future<void> _pickCategory() async {
+    final category = await Navigator.push<Category>(context,
+      MaterialPageRoute(builder: (_) => CategoryPickerScreen(
+        selectedCategory: _selectedCategory, initialType: _type,
+      )),
+    );
+    if (category == null || !mounted) return;
+    setState(() {
+      _selectedCategory = category.name;
+      _type = category.type;
+      _noteTemplates = [];
+    });
+    await _loadNoteTemplates();
+  }
 
   Future<void> _saveRecord() async {
     final amountText = _amountController.text;
@@ -74,8 +104,17 @@ class _RecordScreenState extends State<RecordScreen> {
     }
 
     final int amountCents = (amountDouble * 100).round();
+    if (amountCents <= 0) return;
     final String category = _selectedCategory ?? '未分类';
     final String note = _noteController.text;
+
+    if (_isTemplateEntry) {
+      widget.onEntrySaved!(TemplateEntry(
+        amount: amountCents, type: _type, category: category, note: note,
+      ));
+      Navigator.pop(context);
+      return;
+    }
 
     final record = TransactionModel(
       amount: amountCents,
@@ -92,7 +131,7 @@ class _RecordScreenState extends State<RecordScreen> {
       await DBHelper().saveNoteTemplate(category, note);
     }
 
-    widget.onSaved(); // 通知外部刷新
+    widget.onSaved?.call(); // 通知外部刷新
 
     if (mounted) {
       final colors = Theme.of(context).colorScheme;
@@ -136,8 +175,8 @@ class _RecordScreenState extends State<RecordScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  const Text('记一笔',
-                      style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+                  Text(_isTemplateEntry ? '模板条目' : '记一笔',
+                      style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
                   IconButton(
                     icon: const Icon(Icons.close),
                     onPressed: () => Navigator.pop(context),
@@ -145,6 +184,15 @@ class _RecordScreenState extends State<RecordScreen> {
                 ],
               ),
               const SizedBox(height: 16),
+              if (_isTemplateEntry)
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(_type == 0 ? Icons.arrow_upward : Icons.arrow_downward),
+                  title: Text(_selectedCategory ?? '未分类'),
+                  subtitle: Text(_type == 0 ? '支出' : '收入'),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: _pickCategory,
+                ),
 
             // 金额输入
             TextField(
@@ -170,6 +218,7 @@ class _RecordScreenState extends State<RecordScreen> {
 
 
             // 日期选择
+            if (!_isTemplateEntry) ...[
             ListTile(
               contentPadding: EdgeInsets.zero,
               leading: const Icon(Icons.calendar_today),
@@ -189,6 +238,7 @@ class _RecordScreenState extends State<RecordScreen> {
               },
             ),
             const Divider(),
+            ],
 
             // 备注输入区（含历史备注快捷选择）
             TextField(

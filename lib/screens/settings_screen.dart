@@ -3,11 +3,11 @@ import 'dart:io';
 import 'package:file_picker/file_picker.dart';
 import '../database/db_helper.dart';
 import '../utils/data_manager.dart';
-import '../utils/shark_migration.dart';
 import '../services/theme_service.dart';
 import '../models/category.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'note_manager_screen.dart';
+import 'template_manager_screen.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -99,7 +99,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onTap: () => _manageCategories(1),
           ),
           const Divider(),
-          _buildSectionHeader('备注管理'),
+          _buildSectionHeader('模板管理'),
+          ListTile(
+            leading: const Icon(Icons.library_books_outlined, color: Colors.indigo),
+            title: const Text('记账模板'),
+            onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const TemplateManagerScreen())),
+          ),
           ListTile(
             leading: const Icon(Icons.notes, color: Colors.teal),
             title: const Text('备注模板管理'),
@@ -114,52 +120,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             leading: const Icon(Icons.info_outline),
             title: const Text('HoshiLedger'),
             subtitle: Text('版本 $_version · 极简离线记账'),
-          ),
-          const Divider(),
-          ListTile(
-            leading: const Icon(Icons.warning, color: Colors.amber),
-            title: const Text('【临时】迁移鲨鱼记账数据'),
-            subtitle: const Text('一键导入 assets 中的 CSV 数据（重复点击会导致数据重复）'),
-            onTap: () async {
-              final confirmed = await showDialog<bool>(
-                context: context,
-                builder: (ctx) => AlertDialog(
-                  title: const Text('数据迁移确认'),
-                  content: const Text('重复导入会导致账单数据重复。请确保你尚未导入过这些文件，是否继续？'),
-                  actions: [
-                    TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('取消')),
-                    TextButton(
-                      onPressed: () => Navigator.pop(ctx, true),
-                      child: const Text('确定迁移'),
-                    ),
-                  ],
-                ),
-              );
-
-              if (confirmed == true) {
-                if (!mounted) return;
-                showDialog(
-                  context: context,
-                  barrierDismissible: false,
-                  builder: (ctx) => AlertDialog(
-                    contentPadding: const EdgeInsets.fromLTRB(24, 40, 24, 40),
-                    content: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const CircularProgressIndicator(),
-                        const SizedBox(height: 24),
-                        const Text('正在迁移数据，请稍候...', style: TextStyle(fontSize: 15)),
-                      ],
-                    ),
-                  ),
-                );
-                int count = await SharkMigration.runMigration();
-                if (mounted) {
-                  Navigator.pop(context);
-                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('成功导入了 $count 条记录！')));
-                }
-              }
-            },
           ),
         ],
       ),
