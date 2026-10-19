@@ -432,13 +432,16 @@ class _CategoryManagerState extends State<CategoryManager> {
                 const SizedBox(width: 8),
                 Tooltip(
                   message: '拖动排序',
+                  triggerMode: TooltipTriggerMode.manual,
                   child: ReorderableDragStartListener(
                     index: index,
                     enabled: !_savingOrder,
-                    child: const SizedBox(
-                      width: 40,
+                    child: Container(
+                      width: 48,
                       height: 48,
-                      child: Icon(Icons.drag_handle),
+                      alignment: Alignment.center,
+                      color: Colors.transparent,
+                      child: const Icon(Icons.drag_handle),
                     ),
                   ),
                 ),
