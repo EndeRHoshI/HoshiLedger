@@ -340,6 +340,7 @@ class CategoryManager extends StatefulWidget {
 
 class _CategoryManagerState extends State<CategoryManager> {
   List<Category> _categories = [];
+  bool _savingOrder = false;
 
   @override
   void initState() {
@@ -349,7 +350,33 @@ class _CategoryManagerState extends State<CategoryManager> {
 
   Future<void> _loadCategories() async {
     final data = await DBHelper().getCategories(widget.type);
+    if (!mounted) return;
     setState(() => _categories = data);
+  }
+
+  Future<void> _onReorder(int oldIndex, int newIndex) async {
+    if (_savingOrder) return;
+    if (newIndex > oldIndex) newIndex--;
+    if (oldIndex == newIndex) return;
+
+    final previous = List<Category>.of(_categories);
+    setState(() {
+      final category = _categories.removeAt(oldIndex);
+      _categories.insert(newIndex, category);
+      _savingOrder = true;
+    });
+
+    try {
+      await DBHelper().updateCategoriesOrder(widget.type, _categories);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _categories = previous);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('分类排序保存失败，请重试')),
+      );
+    } finally {
+      if (mounted) setState(() => _savingOrder = false);
+    }
   }
 
   @override
@@ -358,39 +385,62 @@ class _CategoryManagerState extends State<CategoryManager> {
       appBar: AppBar(
         title: Text(widget.type == 0 ? '支出分类' : '收入分类'),
       ),
-      body: ListView.builder(
+      body: ReorderableListView.builder(
+        buildDefaultDragHandles: false,
+        onReorder: _onReorder,
+        padding: const EdgeInsets.only(bottom: 88),
         itemCount: _categories.length,
         itemBuilder: (context, index) {
           final cat = _categories[index];
           return ListTile(
+            key: ValueKey(cat.id),
             contentPadding: const EdgeInsets.symmetric(horizontal: 16),
             leading: CircleAvatar(
               backgroundColor: Theme.of(context).colorScheme.primaryContainer.withAlpha(51),
               child: Icon(Category.getIconData(cat.icon), color: Theme.of(context).colorScheme.primary),
             ),
-            title: Text(cat.name),
+            title: Text(cat.name, maxLines: 1, overflow: TextOverflow.ellipsis),
             trailing: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
                 IconButton(
+                  tooltip: '编辑分类',
                   icon: const Icon(Icons.edit_outlined, size: 22),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  onPressed: () => _editCategory(cat),
+                  onPressed: _savingOrder ? null : () => _editCategory(cat),
                 ),
                 const SizedBox(width: 12),
                 IconButton(
+                  tooltip: '删除分类',
                   icon: const Icon(Icons.delete_outline, color: Colors.red, size: 22),
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
-                  onPressed: () async {
-                    if (_categories.length <= 1) {
-                      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('至少保留一个分类')));
-                      return;
-                    }
-                    await DBHelper().deleteCategory(cat.id!);
-                    _loadCategories();
-                  },
+                  onPressed: _savingOrder
+                      ? null
+                      : () async {
+                          if (_categories.length <= 1) {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('至少保留一个分类')),
+                            );
+                            return;
+                          }
+                          await DBHelper().deleteCategory(cat.id!);
+                          _loadCategories();
+                        },
+                ),
+                const SizedBox(width: 8),
+                Tooltip(
+                  message: '拖动排序',
+                  child: ReorderableDragStartListener(
+                    index: index,
+                    enabled: !_savingOrder,
+                    child: const SizedBox(
+                      width: 40,
+                      height: 48,
+                      child: Icon(Icons.drag_handle),
+                    ),
+                  ),
                 ),
               ],
             ),
@@ -398,7 +448,7 @@ class _CategoryManagerState extends State<CategoryManager> {
         },
       ),
       floatingActionButton: FloatingActionButton(
-        onPressed: _addNewCategory,
+        onPressed: _savingOrder ? null : _addNewCategory,
         child: const Icon(Icons.add),
       ),
     );

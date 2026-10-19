@@ -25,7 +25,7 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'hoshi_ledger.db');
     return await openDatabase(
       path,
-      version: 6, // 区分居家与住房图标
+      version: 7, // 支持分类排序
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -38,7 +38,8 @@ class DBHelper {
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         name TEXT NOT NULL,
         type INTEGER NOT NULL,
-        icon TEXT NOT NULL
+        icon TEXT NOT NULL,
+        sort_order INTEGER NOT NULL DEFAULT 0
       )
     ''');
 
@@ -111,8 +112,11 @@ class DBHelper {
       {'name': '其它', 'type': 1, 'icon': 'more_horiz'},
     ];
 
-    for (var cat in defaultCategories) {
-      await db.insert('categories', cat);
+    for (int i = 0; i < defaultCategories.length; i++) {
+      await db.insert('categories', {
+        ...defaultCategories[i],
+        'sort_order': i,
+      });
     }
   }
 
@@ -207,12 +211,29 @@ class DBHelper {
         whereArgs: ['住房', 0, 'home', 'chair'],
       );
     }
+    if (oldVersion < 7) {
+      await db.execute(
+        'ALTER TABLE categories ADD COLUMN sort_order INTEGER NOT NULL DEFAULT 0',
+      );
+      // 以原 ID 顺序初始化，避免升级后打乱已有分类。
+      await db.execute('UPDATE categories SET sort_order = id');
+    }
   }
 
   // --- 分类 CRUD ---
   Future<int> insertCategory(Category category) async {
     final db = await database;
-    final id = await db.insert('categories', category.toMap());
+    final id = await db.transaction((txn) async {
+      final result = await txn.rawQuery(
+        'SELECT MAX(sort_order) AS max_order FROM categories WHERE type = ?',
+        [category.type],
+      );
+      final nextOrder = (result.first['max_order'] as int? ?? -1) + 1;
+      return txn.insert('categories', {
+        ...category.toMap(),
+        'sort_order': nextOrder,
+      });
+    });
     categoryUpdateNotifier.value++; // 通知更新
     return id;
   }
@@ -223,6 +244,7 @@ class DBHelper {
       'categories',
       where: 'type = ?',
       whereArgs: [type],
+      orderBy: 'sort_order ASC, id ASC',
     );
     return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
   }
@@ -231,6 +253,26 @@ class DBHelper {
     final db = await database;
     final List<Map<String, dynamic>> maps = await db.query('categories');
     return List.generate(maps.length, (i) => Category.fromMap(maps[i]));
+  }
+
+  Future<void> updateCategoriesOrder(int type, List<Category> categories) async {
+    if (categories.any(
+      (category) => category.type != type || category.id == null,
+    )) {
+      throw ArgumentError('分类必须已保存且属于同一收支类型');
+    }
+    final db = await database;
+    await db.transaction((txn) async {
+      for (int i = 0; i < categories.length; i++) {
+        await txn.update(
+          'categories',
+          {'sort_order': i},
+          where: 'id = ? AND type = ?',
+          whereArgs: [categories[i].id, type],
+        );
+      }
+    });
+    categoryUpdateNotifier.value++;
   }
 
   Future<int> updateCategory(Category category) async {
