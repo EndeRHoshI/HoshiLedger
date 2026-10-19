@@ -16,7 +16,7 @@ class SharkMigration {
   static String _getIconForCategory(String categoryName) {
     switch (categoryName) {
       case '办公': return 'business_center';
-      case '住房': return 'home';
+      case '住房': return 'apartment';
       case '日用': return 'shopping_cart';
       case '娱乐': return 'sports_esports';
       case '汽车': return 'directions_car';

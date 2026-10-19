@@ -16,7 +16,7 @@ class Category {
     'people', 'family_restroom', 'groups', 'elderly',
     'favorite', 'celebration', 'volunteer_activism', 'redeem', 'card_giftcard', 'emoji_events',
     'face', 'spa', 'brush',
-    'home', 'chair', 'bed', 'build', 'handyman',
+    'home', 'apartment', 'chair', 'bed', 'build', 'handyman',
     'medical_services', 'local_hospital',
     'checkroom', 'dry_cleaning',
     'water_drop', 'phishing',
@@ -96,6 +96,7 @@ class Category {
       case 'spa': return Icons.spa;
       case 'brush': return Icons.brush;
       case 'home': return Icons.home;
+      case 'apartment': return Icons.apartment;
       case 'chair': return Icons.chair;
       case 'bed': return Icons.bed;
       case 'build': return Icons.build;

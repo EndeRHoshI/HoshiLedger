@@ -25,7 +25,7 @@ class DBHelper {
     String path = join(await getDatabasesPath(), 'hoshi_ledger.db');
     return await openDatabase(
       path,
-      version: 5, // 进一步完善默认分类
+      version: 6, // 区分居家与住房图标
       onCreate: _createDB,
       onUpgrade: _upgradeDB,
     );
@@ -77,8 +77,8 @@ class DBHelper {
       {'name': '零食', 'type': 0, 'icon': 'fastfood'},
       {'name': '服饰', 'type': 0, 'icon': 'checkroom'},
       {'name': '美容', 'type': 0, 'icon': 'face'},
-      {'name': '居家', 'type': 0, 'icon': 'home'},
-      {'name': '住房', 'type': 0, 'icon': 'chair'},
+      {'name': '居家', 'type': 0, 'icon': 'chair'},
+      {'name': '住房', 'type': 0, 'icon': 'apartment'},
       {'name': '教育', 'type': 0, 'icon': 'school'},
       {'name': '学习', 'type': 0, 'icon': 'menu_book'},
       {'name': '医疗', 'type': 0, 'icon': 'medical_services'},
@@ -116,7 +116,7 @@ class DBHelper {
     }
   }
 
-  /// 数据库升级：从 v1 -> v2 新增 note_templates 表
+  /// 按版本逐步升级已有数据库。
   Future<void> _upgradeDB(Database db, int oldVersion, int newVersion) async {
     if (oldVersion < 2) {
       await db.execute('''
@@ -191,6 +191,21 @@ class DBHelper {
           await db.insert('categories', cat);
         }
       }
+    }
+    if (oldVersion < 6) {
+      // 修正旧默认图标，保留用户选择的其他图标。
+      await db.update(
+        'categories',
+        {'icon': 'chair'},
+        where: 'name = ? AND type = ? AND icon = ?',
+        whereArgs: ['居家', 0, 'home'],
+      );
+      await db.update(
+        'categories',
+        {'icon': 'apartment'},
+        where: 'name = ? AND type = ? AND icon IN (?, ?)',
+        whereArgs: ['住房', 0, 'home', 'chair'],
+      );
     }
   }
 

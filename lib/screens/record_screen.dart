@@ -95,8 +95,19 @@ class _RecordScreenState extends State<RecordScreen> {
     widget.onSaved(); // 通知外部刷新
 
     if (mounted) {
+      final colors = Theme.of(context).colorScheme;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('已记录'), duration: Duration(seconds: 1)),
+        SnackBar(
+          content: Text('已记录', style: TextStyle(color: colors.onSurface)),
+          backgroundColor: colors.surfaceContainerHigh,
+          behavior: SnackBarBehavior.floating,
+          elevation: 0,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(8),
+            side: BorderSide(color: colors.outlineVariant),
+          ),
+          duration: const Duration(seconds: 1),
+        ),
       );
     }
 
