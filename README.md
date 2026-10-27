@@ -79,7 +79,7 @@ Release 包含 `HoshiLedger-vX.Y.Z.N.apk`、对应 `.sha256` 和 `latest.json`�
 
 ### 手机更新
 
-App 启动时最多每 24 小时自动检查一次，失败时不打断记账；可在设置中关闭自动检查或手动检查。
+App 仅在用户点击设置中的「检查更新」后联网检查，不在启动时或后台自动检查。
 更新地址是公开仓库的 `releases/latest/download/latest.json`，不会携带任何账单数据或 GitHub Token。
 下载支持进度和取消，完成后校验大小与 SHA-256；安装前再校验包名、版本和签名。
 Android 的安装授权和最终安装确认由系统处理，不会静默安装。

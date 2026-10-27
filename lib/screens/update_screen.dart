@@ -2,64 +2,11 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:package_info_plus/package_info_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../models/app_update.dart';
 import '../services/update_service.dart';
 
-Future<void> checkForAppUpdate(BuildContext context) async {
-  if (!Platform.isAndroid) return;
-  try {
-    final preferences = await SharedPreferences.getInstance();
-    if (!(preferences.getBool('automatic_update_checks') ?? true)) return;
-    final lastCheck = preferences.getInt('last_update_check') ?? 0;
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (now - lastCheck < const Duration(hours: 24).inMilliseconds) return;
-    final update = await UpdateService().check();
-    await preferences.setInt('last_update_check', now);
-    if (update == null ||
-        !context.mounted ||
-        ModalRoute.of(context)?.isCurrent != true) {
-      return;
-    }
-    final download = await showDialog<bool>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: Text('发现新版本 ${update.version}'),
-        content: Text(
-          update.notes.isEmpty ? 'Hoshi记账' : update.notes,
-          maxLines: 8,
-          overflow: TextOverflow.ellipsis,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, false),
-            child: const Text('稍后'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.pop(ctx, true),
-            child: const Text('下载更新'),
-          ),
-        ],
-      ),
-    );
-    if (download == true && context.mounted) {
-      await Navigator.push<void>(
-        context,
-        MaterialPageRoute(
-          builder: (_) => UpdateScreen(update: update, downloadOnOpen: true),
-        ),
-      );
-    }
-  } catch (_) {
-    // 自动检查失败保持安静，手动检查会展示具体错误。
-  }
-}
-
 class UpdateScreen extends StatefulWidget {
-  final AppUpdate? update;
-  final bool downloadOnOpen;
-
-  const UpdateScreen({super.key, this.update, this.downloadOnOpen = false});
+  const UpdateScreen({super.key});
 
   @override
   State<UpdateScreen> createState() => _UpdateScreenState();
@@ -84,7 +31,6 @@ class _UpdateScreenState extends State<UpdateScreen>
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
-    _update = widget.update;
     _initialize();
   }
 
@@ -96,11 +42,7 @@ class _UpdateScreenState extends State<UpdateScreen>
         _installedVersion = installed.version;
         _initialized = true;
       });
-      if (_update == null) {
-        await _check();
-      } else if (widget.downloadOnOpen) {
-        await _download();
-      }
+      await _check();
     } catch (_) {
       if (mounted) setState(() => _error = '无法读取应用版本，请重试');
     } finally {
