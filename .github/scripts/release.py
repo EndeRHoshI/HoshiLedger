@@ -111,7 +111,8 @@ def prepare():
         raise ValueError("No stable Android build-tools apksigner found")
     certificate = run(str(candidates[-1]), "verify", "--print-certs", str(source)).stdout
     fingerprints = re.findall(
-        r"^Signer(?: #\d+)?(?: \([^\r\n]*\))? certificate SHA-256 digest:[ \t]*([0-9a-fA-F]{64})[ \t]*$",
+        r"^(?:Signer(?: #\d+)?(?: \([^\r\n]*\))?|V[1-4](?:\.\d+)? Signer:)"
+        r" certificate SHA-256 digest:[ \t]*([0-9a-fA-F]{64})[ \t]*$",
         certificate, re.M,
     )
     if not fingerprints:
