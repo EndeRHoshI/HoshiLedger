@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'history_screen.dart';
 import 'statistics_screen.dart';
 import 'settings_screen.dart';
+import 'update_screen.dart';
 
 class MainLayout extends StatefulWidget {
   const MainLayout({super.key});
@@ -11,6 +12,14 @@ class MainLayout extends StatefulWidget {
 }
 
 class _MainLayoutState extends State<MainLayout> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) checkForAppUpdate(context);
+    });
+  }
+
   int _currentIndex = 0;
 
   // 每次切换到对应 tab 时递增，子页面监听后自动刷新

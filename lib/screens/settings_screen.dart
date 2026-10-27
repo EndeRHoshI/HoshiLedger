@@ -8,6 +8,8 @@ import '../models/category.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 import 'note_manager_screen.dart';
 import 'template_manager_screen.dart';
+import 'update_screen.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -18,6 +20,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   String _version = '1.0.0';
+  bool _automaticUpdateChecks = true;
 
   @override
   void initState() {
@@ -27,8 +30,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _initPackageInfo() async {
     final info = await PackageInfo.fromPlatform();
+    final preferences = await SharedPreferences.getInstance();
     if (mounted) {
-      setState(() => _version = info.version);
+      setState(() {
+        _version = info.version;
+        _automaticUpdateChecks = preferences.getBool('automatic_update_checks') ?? true;
+      });
     }
   }
   @override
@@ -116,6 +123,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           const Divider(),
+          ListTile(
+            leading: const Icon(Icons.system_update_outlined),
+            title: const Text('检查更新'),
+            trailing: const Icon(Icons.chevron_right),
+            onTap: () => Navigator.push(context,
+              MaterialPageRoute(builder: (_) => const UpdateScreen())),
+          ),
+          SwitchListTile(
+            secondary: const Icon(Icons.update),
+            title: const Text('启动时检查更新'),
+            value: _automaticUpdateChecks,
+            onChanged: (enabled) async {
+              setState(() => _automaticUpdateChecks = enabled);
+              final preferences = await SharedPreferences.getInstance();
+              await preferences.setBool('automatic_update_checks', enabled);
+            },
+          ),
           ListTile(
             leading: const Icon(Icons.info_outline),
             title: const Text('HoshiLedger'),
