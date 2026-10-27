@@ -122,6 +122,10 @@ def prepare():
     if fingerprints != {SIGNER_SHA256}:
         raise ValueError(f"APK signature differs from the installed v1.0.1 signing key ({SIGNER_SHA256})")
     with zipfile.ZipFile(source) as apk:
+        abis = {name.split("/")[1] for name in apk.namelist()
+                if name.startswith("lib/") and name.endswith(".so")}
+        if abis != {"arm64-v8a"}:
+            raise ValueError(f"APK must contain only ARM64 native libraries; found: {sorted(abis)}")
         if any(name.lower().endswith(".csv") for name in apk.namelist()):
             raise ValueError("APK must not contain migration CSV files")
     output = ROOT / "release"

@@ -62,7 +62,7 @@ jobs:
         run: python .github/scripts/release.py signing
       - run: flutter pub get --enforce-lockfile
       - name: Build signed APK
-        run: flutter build apk --release
+        run: flutter build apk --release --target-platform android-arm64
       - name: Verify and prepare release assets
         run: python .github/scripts/release.py prepare
       - uses: actions/upload-artifact@v4

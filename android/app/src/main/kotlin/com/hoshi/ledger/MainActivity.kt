@@ -88,8 +88,10 @@ class MainActivity : FlutterActivity() {
             }
         }
         require(hex(digest.digest()) == checksum) { "安装包校验失败，请重新下载" }
-        val flags = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-            PackageManager.GET_SIGNING_CERTIFICATES else PackageManager.GET_SIGNATURES
+        // Some Android 10 devices only collect archive certificates with GET_SIGNATURES.
+        val flags = PackageManager.GET_SIGNATURES or
+            (if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                PackageManager.GET_SIGNING_CERTIFICATES else 0)
         val installed = packageManager.getPackageInfo(packageName, flags)
         val archive = requireNotNull(packageManager.getPackageArchiveInfo(apk.path, flags)) { "无法读取安装包" }
         require(archive.packageName == packageName) { "安装包不是 Hoshi 记账" }
@@ -97,14 +99,18 @@ class MainActivity : FlutterActivity() {
             info.longVersionCode else info.versionCode.toLong()
         require(code(archive) == expectedVersion && code(archive) > code(installed)) { "安装包版本不正确" }
         fun signers(info: PackageInfo): Set<String> {
-            val signatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
-                info.signingInfo?.apkContentsSigners else info.signatures
+            val modernSignatures = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+                info.signingInfo?.apkContentsSigners else null
+            val signatures = modernSignatures?.takeIf { it.isNotEmpty() } ?: info.signatures
             return signatures.orEmpty().map {
                 hex(MessageDigest.getInstance("SHA-256").digest(it.toByteArray()))
             }.toSet()
         }
         val currentSigners = signers(installed)
-        require(currentSigners.isNotEmpty() && currentSigners == signers(archive)) {
+        val archiveSigners = signers(archive)
+        require(currentSigners.isNotEmpty()) { "无法读取当前应用签名，已停止安装" }
+        require(archiveSigners.isNotEmpty()) { "无法读取安装包签名，已停止安装" }
+        require(currentSigners == archiveSigners) {
             "安装包签名与当前应用不同，已停止安装"
         }
         return apk

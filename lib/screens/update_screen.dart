@@ -77,7 +77,10 @@ class _UpdateScreenState extends State<UpdateScreen>
         setState(() => _message = '尚未允许安装应用');
       }
     } on PlatformException catch (error) {
-      if (mounted) _showError(error.message ?? '无法检查安装授权');
+      if (mounted) {
+        setState(() => _message = null);
+        _showError(error.message ?? '无法检查安装授权');
+      }
     }
   }
 
@@ -131,7 +134,10 @@ class _UpdateScreenState extends State<UpdateScreen>
     final file = _package;
     final update = _update;
     if (_installing || file == null || update == null) return;
-    setState(() => _installing = true);
+    setState(() {
+      _installing = true;
+      _message = null;
+    });
     try {
       final allowed = await _service.canInstall();
       if (!mounted) return;
@@ -145,7 +151,10 @@ class _UpdateScreenState extends State<UpdateScreen>
       if (mounted) setState(() => _message = '已打开系统安装器');
     } on PlatformException catch (error) {
       _waitingPermission = false;
-      if (mounted) _showError(error.message ?? '无法打开系统安装器');
+      if (mounted) {
+        setState(() => _message = null);
+        _showError(error.message ?? '无法打开系统安装器');
+      }
     } finally {
       if (mounted) setState(() => _installing = false);
     }
