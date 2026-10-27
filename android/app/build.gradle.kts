@@ -1,4 +1,17 @@
 import java.util.Properties
+import org.yaml.snakeyaml.LoaderOptions
+import org.yaml.snakeyaml.Yaml
+import org.yaml.snakeyaml.constructor.SafeConstructor
+
+buildscript {
+    repositories {
+        maven { url = uri("https://maven.aliyun.com/repository/public") }
+        mavenCentral()
+    }
+    dependencies {
+        classpath("org.yaml:snakeyaml:2.3")
+    }
+}
 
 plugins {
     id("com.android.application")
@@ -7,10 +20,15 @@ plugins {
     id("dev.flutter.flutter-gradle-plugin")
 }
 
-val versionParts = flutter.versionName.split('.').map { it.toInt() }
-require(versionParts.size == 3) { "Use major.minor.patch+revision in pubspec.yaml" }
-val (major, minor, patch) = versionParts
-val revision = flutter.versionCode
+// Flutter normalizes a build number of zero to one; read the version source directly.
+val pubspec = Yaml(SafeConstructor(LoaderOptions())).load<Map<String, Any>>(
+    rootProject.file("../pubspec.yaml").readText()
+)
+val sourceVersion = requireNotNull(pubspec["version"] as? String)
+val parsedVersion = requireNotNull(
+    Regex("(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\+(0|[1-9]\\d*)").matchEntire(sourceVersion)
+) { "Use major.minor.patch+revision in pubspec.yaml" }
+val (major, minor, patch, revision) = parsedVersion.groupValues.drop(1).map { it.toInt() }
 require(major in 0..20 && minor in 0..99 && patch in 0..999 && revision in 0..999) {
     "Version limits: major <= 20, minor <= 99, patch/revision <= 999"
 }
@@ -47,7 +65,7 @@ android {
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         versionCode = androidVersionCode
-        versionName = "${flutter.versionName}.$revision"
+        versionName = "$major.$minor.$patch.$revision"
     }
 
     signingConfigs {
