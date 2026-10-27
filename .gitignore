@@ -46,3 +46,9 @@ app.*.map.json
 
 # User Data
 assets/*.csv
+
+# Release signing material
+/android/key.properties
+*.jks
+*.keystore
+/release/
