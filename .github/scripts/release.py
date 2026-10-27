@@ -110,9 +110,16 @@ def prepare():
     if not candidates:
         raise ValueError("No stable Android build-tools apksigner found")
     certificate = run(str(candidates[-1]), "verify", "--print-certs", str(source)).stdout
-    match = re.search(r"^Signer #1 certificate SHA-256 digest: ([0-9a-f]+)$", certificate, re.M)
-    if not match or match[1] != SIGNER_SHA256:
-        raise ValueError("APK signature differs from the installed v1.0.1 signing key")
+    fingerprints = re.findall(
+        r"^Signer(?: #\d+)?(?: \([^\r\n]*\))? certificate SHA-256 digest:[ \t]*([0-9a-fA-F]{64})[ \t]*$",
+        certificate, re.M,
+    )
+    if not fingerprints:
+        raise ValueError(f"Cannot read APK signing certificate from apksigner output:\n{certificate.strip()}")
+    fingerprints = {fingerprint.lower() for fingerprint in fingerprints}
+    print(f"APK signing certificate SHA-256: {', '.join(sorted(fingerprints))}", flush=True)
+    if fingerprints != {SIGNER_SHA256}:
+        raise ValueError(f"APK signature differs from the installed v1.0.1 signing key ({SIGNER_SHA256})")
     with zipfile.ZipFile(source) as apk:
         if any(name.lower().endswith(".csv") for name in apk.namelist()):
             raise ValueError("APK must not contain migration CSV files")
